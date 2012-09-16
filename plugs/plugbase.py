@@ -21,6 +21,10 @@ class Plug(object):
         self.log.info("Loading")
         self.core = core
         self.users = core.users.users
+        self.load()
+
+    def load(self):
+        pass
 
     def hook_events(self):
         """Ask the core to add whatever callbacks have been specified."""
