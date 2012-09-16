@@ -12,10 +12,10 @@ class QuitPlug(plugbase.Plug):
 
     """
     name = 'Quit'
-    enabled = True
-
     commands = ['quit', 'reload']
     hooks = [Event.addressed]
+
+    enabled = True
 
     def handle_addressed(self, source, target, message):
         if message.startswith('enable'):

@@ -6,7 +6,6 @@
 """Shirk: an easily extensible IRC bot based on Twisted."""
 
 # Standard library imports
-from collections import namedtuple
 import importlib
 import json
 import logging
