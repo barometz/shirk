@@ -7,4 +7,5 @@ class Event:
     addressed = 'event_addressed'
     chanmsg = 'event_chanmsg'
     command = 'event_command'
-    private = 'event_private'    
+    private = 'event_private'  
+    userjoined = 'event_userjoined'

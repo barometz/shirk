@@ -16,6 +16,7 @@ from twisted.internet import reactor, protocol
 
 # Project imports
 from util import Event
+import users
 
 
 class Shirk(irc.IRCClient):
@@ -38,10 +39,11 @@ class Shirk(irc.IRCClient):
     def load_plugs(self):
         """Load the plugs listed in config."""
         self.plugs = {}
-        self.hooks = {Event.command:   {},    # dictionary of 'command': set([plug, plug])
-                      Event.addressed: set(), # |
-                      Event.private:   set(), # | these are all sets of callbacks
-                      Event.chanmsg:   set()} # |
+        self.hooks = {Event.command:    {},    # dictionary of 'command': set([plug, plug])
+                      Event.addressed:  set(), # |
+                      Event.chanmsg:    set(), # |
+                      Event.private:    set(), # | these are all sets of callbacks
+                      Event.userjoined: set()} # |
         for plugname in self.config['plugs']:
             self.load_plug(plugname)
 
@@ -105,6 +107,7 @@ class Shirk(irc.IRCClient):
 
         """
         logging.info('Connected to server')
+        self.users = users.Users()
         self.nickname = self.config['nickname']
         self.password = self.config['password']
         self.cmd_prefix = self.config['cmd_prefix']
@@ -125,6 +128,7 @@ class Shirk(irc.IRCClient):
         logging.info('Connection lost: %s' % (reason,))
         for name, plug in self.plugs.iteritems():
             plug.cleanup()
+        del self.users
         irc.IRCClient.connectionLost(self, reason)
 
     def signedOn(self):
@@ -134,6 +138,45 @@ class Shirk(irc.IRCClient):
         for chan in self.config['channels']:
             self.join(chan)
         self.lineRate = 0.3
+
+    def joined(self, channel):
+        """Called when I finish joining a channel."""
+        self.sendLine('WHO %s' % (channel,))
+
+    def irc_JOIN(self, prefix, params):
+        """Called when a user joins a channel."""
+        nick = prefix.split('!', 1)[0]
+        channel = params[-1]
+        if nick == self.nickname:
+            self.joined(channel)
+        else:
+            self.userJoined(prefix, channel)
+
+    def irc_RPL_WHOREPLY(self, prefix, params):
+        """Received a reply to a vanilla WHO command"""
+        self.users.user_joined(params[5], # nickname
+                               params[2], # username
+                               params[3], # hostmask
+                               params[1]) # channel
+        self.event_userjoined(params[5], params[1])
+
+    def userJoined(self, user, channel):
+        nickname, rest = user.split('!', 1)
+        username, hostmask = rest.split('@', 1)
+        self.users.user_joined(nickname, username, hostmask, channel)
+        self.event_userjoined(nickname, channel)
+
+    def userLeft(self, user, channel):
+        self.users.user_left(user, channel)
+
+    def userKicked(self, kickee, channel, kicker, message):
+        self.users.user_left(kickee, channel)
+
+    def userQuit(self, user, quitMessage):
+        self.users.user_quit(user)
+
+    def userRenamed(self, oldname, newname):
+        self.users.user_nickchange(oldname, newname)
 
     def privmsg(self, user, target, msg):
         """The bot receives a PRIVMSG, either in channel or in PM"""
@@ -215,6 +258,10 @@ class Shirk(irc.IRCClient):
         """
         for plug in self.hooks[Event.private]:
             plug.handle_private(source, msg, action)
+
+    def event_userjoined(self, nickname, channel):
+        for plug in self.hooks[Event.userjoined]:
+            plug.handle_userjoined(nickname, channel)
 
     ## Things modules will want to use
 
@@ -298,7 +345,7 @@ if __name__ == '__main__':
         'channels': [],
         'server': 'chat.freenode.net',
         'port': 6667,
-        'plugs': ['Core', 'Quit'],
+        'plugs': ['Core', 'Quit', 'Auth'],
         'cmd_prefix': '!',
         'reconnect_delay': 120
     }

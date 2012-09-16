@@ -25,7 +25,7 @@ class QuitPlug(plugbase.Plug):
 
     def cmd_quit(self, source, target, argv):
         """Disconnect and close."""
-        if self.enabled:
+        if self.users[source].power == 10:
             self.core.shutdown('Requested by ' + source)
 
     def cmd_reload(self, source, target, argv):

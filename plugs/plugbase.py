@@ -19,6 +19,7 @@ class Plug(object):
         self.log = logging.getLogger('plug-'+self.name)
         self.log.info("Loading")
         self.core = core
+        self.users = core.users.users
 
     def hook_events(self):
         """Ask the core to add whatever callbacks have been specified."""
@@ -75,6 +76,11 @@ class Plug(object):
     def handle_private(self, source, msg, action):
         """Called when the bot receives a private message"""
         self.log.warning('handle_private has been triggered, but the plug \
+            doesn\'t override it.')  
+
+    def handle_userjoined(self, nickname, channel):
+        """Called when a user has joined a channel."""
+        self.log.warning('handle_userjoined has been triggered, but the plug \
             doesn\'t override it.')  
 
     def unhandled_cmd(self, source, target, argv):
