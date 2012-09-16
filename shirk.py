@@ -410,7 +410,7 @@ if __name__ == '__main__':
         'server': 'chat.freenode.net',
         'port': 6667,
         # The plugs to load at startup.  
-        'plugs': ['Core', 'Quit', 'Auth'],
+        'plugs': ['Core', 'Auth'],
         # The prefix for !commands (or +commands, or @commands, or..)
         'cmd_prefix': '!',
         # Delay between reconnections when there's a connection failure.
