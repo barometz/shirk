@@ -14,7 +14,7 @@ class CorePlug(plugbase.Plug):
 
     """
     name = 'Core'
-    commands = ['plugs', 'commands']
+    commands = ['plugs', 'commands', 'raw']
 
     def cmd_plugs(self, source, target, argv):
         response = ', '.join(self.core.plugs)
@@ -23,3 +23,7 @@ class CorePlug(plugbase.Plug):
     def cmd_commands(self, source, target, argv):
         response = ', '.join(self.core.hooks[Event.command].keys())
         self.respond(source, target, response)
+
+    def cmd_raw(self, source, target, argv):
+        if self.users[source].power >= 10:
+            self.core.sendLine(' '.join(argv[1:]))

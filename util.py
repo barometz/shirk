@@ -8,4 +8,5 @@ class Event:
     chanmsg = 'event_chanmsg'
     command = 'event_command'
     private = 'event_private'  
+    raw = 'event_raw'
     userjoined = 'event_userjoined'

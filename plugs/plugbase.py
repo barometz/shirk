@@ -14,6 +14,7 @@ class Plug(object):
     name = "Plug" 
     commands = []
     hooks = []
+    rawhooks = []
 
     def __init__(self, core):
         self.log = logging.getLogger('plug-'+self.name)
@@ -27,6 +28,8 @@ class Plug(object):
             self.core.add_command(cmd, self)
         for event in self.hooks:
             self.core.add_callback(event, self)
+        for cmd in self.rawhooks:
+            self.core.add_raw(cmd, self)
 
     def cleanup(self):
         """Clean up any potential circular references etc.
@@ -83,6 +86,16 @@ class Plug(object):
         self.log.warning('handle_userjoined has been triggered, but the plug \
             doesn\'t override it.')  
 
+    def handle_raw(self, command, prefix, params):
+        """Called for the raw hooks.
+
+        Defaults to calling self.raw_<command>, or self.unhandled_raw if
+        nothing appropriate is found.  Feel free to override.
+
+        """
+        callback = getattr(self, 'raw_'+command, self.unhandled_raw)
+        callback(command, prefix, params)
+
     def unhandled_cmd(self, source, target, argv):
         """Called for unhandled !commands.
 
@@ -92,3 +105,13 @@ class Plug(object):
         """
         self.log.warning('Received unhandled command: %s > %s %r' % \
             (source, target, argv))
+
+    def unhandled_raw(self, command, prefix, params):
+        """Called for unhandled raw stuff.
+
+        This only happens when a plug requests event hooks for raw commands
+        without specifying the appropriate raw_<command> function.
+
+        """
+        self.log.warning('Received unhandled raw: %s %s %r' % \
+            (prefix, command, params))

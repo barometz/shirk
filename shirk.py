@@ -39,7 +39,8 @@ class Shirk(irc.IRCClient):
     def load_plugs(self):
         """Load the plugs listed in config."""
         self.plugs = {}
-        self.hooks = {Event.command:    {},    # dictionary of 'command': set([plug, plug])
+        self.hooks = {Event.raw:        {},    # dictionary of 'command': set([plug, plug])
+                      Event.command:    {},    # idem
                       Event.addressed:  set(), # |
                       Event.chanmsg:    set(), # |
                       Event.private:    set(), # | these are all sets of callbacks
@@ -178,6 +179,20 @@ class Shirk(irc.IRCClient):
     def userRenamed(self, oldname, newname):
         self.users.user_nickchange(oldname, newname)
 
+    def lineReceived(self, line):
+            line = irc.lowDequote(line)
+            try:
+                prefix, command, params = irc.parsemsg(line)
+                if command in irc.numeric_to_symbolic:
+                    parsedcmd = irc.numeric_to_symbolic[command]
+                else:
+                    parsedcmd = command
+                self.handleCommand(parsedcmd, prefix, params)
+                if self._registered:
+                    self.event_raw(command, prefix, params)
+            except irc.IRCBadMessage:
+                self.badMessage(line, *sys.exc_info())
+
     def privmsg(self, user, target, msg):
         """The bot receives a PRIVMSG, either in channel or in PM"""
         user = user.split('!', 1)[0]
@@ -259,6 +274,12 @@ class Shirk(irc.IRCClient):
         for plug in self.hooks[Event.private]:
             plug.handle_private(source, msg, action)
 
+    def event_raw(self, command, prefix, params):
+        if command in self.hooks[Event.raw]:
+            to_call = set(self.hooks[Event.raw][command])
+            for plug in to_call:
+                plug.handle_raw(command, prefix, params)
+
     def event_userjoined(self, nickname, channel):
         for plug in self.hooks[Event.userjoined]:
             plug.handle_userjoined(nickname, channel)
@@ -299,6 +320,10 @@ class Shirk(irc.IRCClient):
             self.hooks[event].add(plug)
             return True
 
+    def add_raw(self, cmd, plug):
+        if cmd not in self.hooks[Event.raw]:
+            self.hooks[Event.raw][cmd] = set()
+        self.hooks[Event.raw][cmd].add(plug)
 
 class ShirkFactory(protocol.ClientFactory):
     """A factory for Shirk.

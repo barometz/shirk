@@ -8,10 +8,18 @@ class AuthPlug(plugbase.Plug):
     """Auth plug.  Handles auth stuffs."""
     name = 'Auth'
     hooks = [Event.userjoined]
+    rawhooks = ['330']
 
     def handle_userjoined(self, nickname, channel):
         user = self.users[nickname]
-        if user.hostmask == 'pdpc/supporter/active/nazgjunk':
-            user.power = 10
-        else:
-            user.power = 0
+        user.power = 0
+        if user.nickname == 'barometz':
+            self.core.sendLine('WHOIS barometz')
+
+    def raw_330(self, command, prefix, params):
+        """RPL code for Freenode's "logged in as" message on whois."""
+        nickname = params[1]
+        account = params[2]
+        if account == 'nazgjunk':
+            self.users[nickname].power = 10
+            self.log.info('Identified nazgjunk')
