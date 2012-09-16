@@ -18,7 +18,10 @@ class CorePlug(plugbase.Plug):
 
     def cmd_commands(self, source, target, argv):
         """List registered commands."""
-        response = ', '.join(self.core.hooks[Event.command].keys())
+        # Only list those commands that have any plugs
+        response = ', '.join([cmd for cmd \
+            in self.core.hooks[Event.command].keys() \
+            if self.core.hooks[Event.command][cmd]])
         self.respond(source, target, response)
 
     def cmd_plugs(self, source, target, argv):
