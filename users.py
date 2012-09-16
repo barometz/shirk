@@ -1,3 +1,6 @@
+# Copyright (c) 2012 Dominic van Berkel
+# See LICENSE for details.
+
 import logging
 
 class User(object):
@@ -28,10 +31,6 @@ class Users(object):
             self.users[nickname].channels.add(channel)
             self.log.debug('Added user %s to channel %s' % (nickname, channel))
         else:
-            if hostmask == 'pdpc/supporter/active/nazgjunk':
-                power = 10
-            else:
-                power = 0
             self.users[nickname] = User(nickname, username, hostmask, channel)            
             self.log.debug('Added user %s to the global userlist, channel %s' % (nickname, channel))
 

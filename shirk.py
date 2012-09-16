@@ -27,8 +27,8 @@ class Shirk(irc.IRCClient):
     users do that the bot can respond to.  
 
     There's some support for live loading and reloading of plugs, a number of
-    events that plugs can subscribe to and soon a User abstraction so plugs
-    can mostly just shuffle nicknames around but have access to less transient
+    events that plugs can subscribe to and a User abstraction so plugs can
+    mostly just shuffle nicknames around but have access to less transient
     information when necessary.
 
     """
@@ -100,6 +100,7 @@ class Shirk(irc.IRCClient):
         irc.IRCClient.sendLine(self, line)
 
     ## Twisted's callbacks
+    # Things the bot does
 
     def connectionMade(self):
         """A connection with the server has been established.
@@ -144,22 +145,7 @@ class Shirk(irc.IRCClient):
         """Called when I finish joining a channel."""
         self.sendLine('WHO %s' % (channel,))
 
-    def irc_JOIN(self, prefix, params):
-        """Called when a user joins a channel."""
-        nick = prefix.split('!', 1)[0]
-        channel = params[-1]
-        if nick == self.nickname:
-            self.joined(channel)
-        else:
-            self.userJoined(prefix, channel)
-
-    def irc_RPL_WHOREPLY(self, prefix, params):
-        """Received a reply to a vanilla WHO command"""
-        self.users.user_joined(params[5], # nickname
-                               params[2], # username
-                               params[3], # hostmask
-                               params[1]) # channel
-        self.event_userjoined(params[5], params[1])
+    # Things other users do
 
     def userJoined(self, user, channel):
         nickname, rest = user.split('!', 1)
@@ -178,20 +164,6 @@ class Shirk(irc.IRCClient):
 
     def userRenamed(self, oldname, newname):
         self.users.user_nickchange(oldname, newname)
-
-    def lineReceived(self, line):
-            line = irc.lowDequote(line)
-            try:
-                prefix, command, params = irc.parsemsg(line)
-                if command in irc.numeric_to_symbolic:
-                    parsedcmd = irc.numeric_to_symbolic[command]
-                else:
-                    parsedcmd = command
-                self.handleCommand(parsedcmd, prefix, params)
-                if self._registered:
-                    self.event_raw(command, prefix, params)
-            except irc.IRCBadMessage:
-                self.badMessage(line, *sys.exc_info())
 
     def privmsg(self, user, target, msg):
         """The bot receives a PRIVMSG, either in channel or in PM"""
@@ -221,6 +193,39 @@ class Shirk(irc.IRCClient):
             self.event_private(user, msg, True)
         else:
             self.event_chanmsg(user, target, msg, True)
+
+    # Lower-level callbacks
+
+    def irc_JOIN(self, prefix, params):
+        """Called when a user joins a channel."""
+        nick = prefix.split('!', 1)[0]
+        channel = params[-1]
+        if nick == self.nickname:
+            self.joined(channel)
+        else:
+            self.userJoined(prefix, channel)
+
+    def irc_RPL_WHOREPLY(self, prefix, params):
+        """Received a reply to a vanilla WHO command"""
+        self.users.user_joined(params[5], # nickname
+                               params[2], # username
+                               params[3], # hostmask
+                               params[1]) # channel
+        self.event_userjoined(params[5], params[1])
+
+    def lineReceived(self, line):
+        line = irc.lowDequote(line)
+        try:
+            prefix, command, params = irc.parsemsg(line)
+            if command in irc.numeric_to_symbolic:
+                parsedcmd = irc.numeric_to_symbolic[command]
+            else:
+                parsedcmd = command
+            self.handleCommand(parsedcmd, prefix, params)
+            if self._registered:
+                self.event_raw(command, prefix, params)
+        except irc.IRCBadMessage:
+            self.badMessage(line, *sys.exc_info())
 
     ## Shirk's events that modules can register callbacks for
 
@@ -275,12 +280,28 @@ class Shirk(irc.IRCClient):
             plug.handle_private(source, msg, action)
 
     def event_raw(self, command, prefix, params):
+        """Pretty much any message triggers this event.
+
+        Messy to explain, but an example is easy:
+        "pratchett.freenode.net 330 shirks barometz nazgjunk :is logged in as"
+        leads to:
+        command: 330
+        prefix: pratchett.freenode.net
+        params: ['shirks', 'barometz', 'nazgjunk', 'is logged in as']
+
+        """
         if command in self.hooks[Event.raw]:
             to_call = set(self.hooks[Event.raw][command])
             for plug in to_call:
                 plug.handle_raw(command, prefix, params)
 
     def event_userjoined(self, nickname, channel):
+        """A user has joined a channel, or the bot joined a channel.
+
+        Is called when a new user joins a channel, and for all users in a
+        channel that the bot just joined.
+
+        """
         for plug in self.hooks[Event.userjoined]:
             plug.handle_userjoined(nickname, channel)
 
@@ -321,6 +342,16 @@ class Shirk(irc.IRCClient):
             return True
 
     def add_raw(self, cmd, plug):
+        """Add a callback for a raw IRC command.
+
+        For instance, a plug might want to catch all PONG replies or some
+        server-specific message.
+
+        cmd: The command as it's sent over the line - not 'RPL_WHOREPLY' but
+            '352'.
+        plug: the plug that wants to be notified.
+
+        """
         if cmd not in self.hooks[Event.raw]:
             self.hooks[Event.raw][cmd] = set()
         self.hooks[Event.raw][cmd].add(plug)
@@ -361,17 +392,28 @@ class ShirkFactory(protocol.ClientFactory):
 
 
 if __name__ == '__main__':
+    # set up default config dictionary
     config = {
+        # The nickname to use
         'nickname': 'shirk',
+        # Password to send while connecting.  Many servers pass this on to
+        # Nickserv.
         'password': '',
+        # The bot's "real" name
         'realname': 'Fedmahn',
+        # Username, generally useless unless there's an identd server running.
         'username': 'shirk',
+        # Debug level: 0 -> warnings, 1 -> info, 2 -> full debug
         'debug': 0,
+        # Channels to join at first
         'channels': [],
         'server': 'chat.freenode.net',
         'port': 6667,
+        # The plugs to load at startup.  
         'plugs': ['Core', 'Quit', 'Auth'],
+        # The prefix for !commands (or +commands, or @commands, or..)
         'cmd_prefix': '!',
+        # Delay between reconnections when there's a connection failure.
         'reconnect_delay': 120
     }
     config.update(json.load(open('conf.json')))

@@ -16,6 +16,12 @@ class AuthPlug(plugbase.Plug):
         self.config = json.load(open('plugs/Auth/users.json'))
 
     def handle_userjoined(self, nickname, channel):
+        """A user has joined a channel, so let's give them perms.
+
+        Todo: make it so that this behaviour is only triggered once, not for
+        every channel a user is in.  A userintroduced event?
+
+        """
         user = self.users[nickname]
         user.power = 0
         if user.hostmask in self.config['hosts']:
