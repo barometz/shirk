@@ -1,6 +1,9 @@
-# placeholder.  This is a module, really!
+# Copyright (c) 2012 Dominic van Berkel
+# See LICENSE for details.
 
+# Import the actual module, then reload in case it was changed.
 import quit
 reload(quit)
 
+# Create an alias for the Plug subclass so the core knows where to look.
 Plug = quit.QuitPlug

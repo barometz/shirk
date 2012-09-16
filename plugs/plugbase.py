@@ -1,23 +1,38 @@
-# Plugin base for Shirk.
+# Copyright (c) 2012 Dominic van Berkel
+# See LICENSE for details.
+
+"""Plugin base for Shirk."""
+
 import logging
 
 class Plug(object):
+    """Base class for Shirk plugs.
+
+    Specifies some utility functions and glue between core and plug.
+
+    """
     name = "Plug" 
     commands = []
     hooks = []
 
     def __init__(self, core):
         self.log = logging.getLogger('plug-'+self.name)
-        self.log.info("Loading plug")
+        self.log.info("Loading")
         self.core = core
 
     def hook_events(self):
+        """Ask the core to add whatever callbacks have been specified."""
         for cmd in self.commands:
             self.core.add_command(cmd, self)
         for event in self.hooks:
             self.core.add_callback(event, self)
 
     def cleanup(self):
+        """Clean up any potential circular references etc.
+
+        Generally called before the plug is unloaded.
+
+        """
         self.log.info("Cleanup")
         self.core = None
 
@@ -37,12 +52,37 @@ class Plug(object):
         else:
             self.core.msg(source, msg)
 
+    def handle_addressed(self, source, target, message):
+        """Called when the bot is directly addressed by a user."""
+        self.log.warning('handle_addressed has been triggered, but the plug \
+            doesn\'t override it.')
+
+    def handle_chanmsg(self, source, target, msg, action):
+        """Called when the bot receives a message in a channel."""
+        self.log.warning('handle_chanmsg has been triggered, but the plug \
+            doesn\'t override it.')
+
     def handle_command(self, source, target, argv):
+        """Call the right function when a !command is passed to this plug.
+
+        Defaults to calling self.cmd_<command>, or self.unhandled_cmd if
+        nothing appropriate is found.  Feel free to override.
+
+        """
         callback = getattr(self, 'cmd_'+argv[0], self.unhandled_cmd)
         callback(source, target, argv)
 
-    def handle_addressed(self, source, target, message):
-        pass
+    def handle_private(self, source, msg, action):
+        """Called when the bot receives a private message"""
+        self.log.warning('handle_private has been triggered, but the plug \
+            doesn\'t override it.')  
 
     def unhandled_cmd(self, source, target, argv):
-        self.log.warning('Received unhandled command: %s > %s %r' % (source, target, argv))
+        """Called for unhandled !commands.
+
+        This only happens when a plug requests event hooks for !commands
+        without specifying the appropriate cmd_<command> function.
+
+        """
+        self.log.warning('Received unhandled command: %s > %s %r' % \
+            (source, target, argv))

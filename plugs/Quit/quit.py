@@ -1,14 +1,16 @@
-"""Quit plug.
-
-The only reason this isn't entire in Core is that it nicely demonstrates how
-Shirk works with multiple modules.
-
-"""
+# Copyright (c) 2012 Dominic van Berkel
+# See LICENSE for details.
 
 from plugs import plugbase
 from util import Event
 
 class QuitPlug(plugbase.Plug):
+    """Quit plug.  Handles !quit and !reload.
+
+    The only reason this isn't entirely in Core is that it nicely demonstrates
+    how Shirk works with multiple modules.
+
+    """
     name = 'Quit'
     enabled = True
 

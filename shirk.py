@@ -1,34 +1,59 @@
+#!/usr/bin/env python2.7
+#
+# Copyright (c) 2012 Dominic van Berkel
+# See LICENSE for details.
 
+"""Shirk: an easily extensible IRC bot based on Twisted."""
+
+# Standard library imports
 from collections import namedtuple
 import importlib
 import json
 import logging
 
-# twisted imports
+# Twisted imports
 from twisted.words.protocols import irc
 from twisted.internet import reactor, protocol
 
+# Project imports
 from util import Event
 
 
 class Shirk(irc.IRCClient):
-    """A simple modular IRC bot"""
+    """A simple modular IRC bot.
 
-    nickname = "shirk"
-    password = "shirky"
-    cmd_prefix = '!'
+    Shirk provides a fairly thin layer of glue between twisted.w.p.i.IRCClient
+    and the plugs, providing configurability and further abstraction of stuff
+    users do that the bot can respond to.  
+
+    There's some support for live loading and reloading of plugs, a number of
+    events that plugs can subscribe to and soon a User abstraction so plugs
+    can mostly just shuffle nicknames around but have access to less transient
+    information when necessary.
+
+    """
+    versionName = "Shirk"
+    versionNum = "0.0"
+    sourceURL = "https://github.com/barometz/shirk"
 
     def load_plugs(self):
-        import plugs
+        """Load the plugs listed in config."""
         self.plugs = {}
-        self.hooks = {Event.command:   {},    # dictionary of 'command': set([callback, callback])
+        self.hooks = {Event.command:   {},    # dictionary of 'command': set([plug, plug])
                       Event.addressed: set(), # |
                       Event.private:   set(), # | these are all sets of callbacks
                       Event.chanmsg:   set()} # |
-        for plugname in plugs.enabled:
+        for plugname in self.config['plugs']:
             self.load_plug(plugname)
 
     def load_plug(self, plugname):
+        """Load the plug identified by plugname.
+
+        Loads and reloads the module to make sure we get any updated code,
+        instantiates the plug and tells it to request event hooks.
+        Raises ImportError if the module can't be found.
+
+        """
         module = importlib.import_module('plugs.'+plugname)
         reload(module)
         plug = module.Plug(self)
@@ -36,6 +61,12 @@ class Shirk(irc.IRCClient):
         plug.hook_events()
 
     def remove_plug(self, plugname):
+        """Remove the plug identified by plugname.
+
+        Removes the plug from the list of plugs and all events.  Raises
+        KeyError if the plug wasn't in self.plugs.
+
+        """
         plug = self.plugs[plugname]
         plug.cleanup()
         for cmd, callbacks in self.hooks[Event.command].iteritems():
@@ -44,15 +75,36 @@ class Shirk(irc.IRCClient):
             self.hooks[ev].discard(plug)
         del self.plugs[plugname]
 
+    def shutdown(self, msg):
+        """Shutdown, as it says on the tin.
+
+        Tell all plugs to clean up, tell the factory that we're shutting down
+        and then quit with the specified message.
+
+        """
+        for name, plug in self.plugs.iteritems():
+            plug.cleanup()
+        self.factory.shuttingdown = True
+        self.quit(msg)
+
     def sendLine(self, line):
-        """Overridden to make sure everything's encoded right, something
-        upstream doesn't like unicode strings."""
+        """Sends a line to the other end of the connection.
+
+        Overridden to make sure everything's encoded right, something
+        upstream doesn't like unicode strings.
+
+        """
         line = line.encode('utf-8')
         irc.IRCClient.sendLine(self, line)
 
-    # Twisted's callbacks
+    ## Twisted's callbacks
 
     def connectionMade(self):
+        """A connection with the server has been established.
+
+        De facto init method.  Old-style classes are awesome, yo.
+
+        """
         logging.info('Connected to server')
         self.nickname = self.config['nickname']
         self.password = self.config['password']
@@ -62,6 +114,15 @@ class Shirk(irc.IRCClient):
         irc.IRCClient.connectionMade(self)
 
     def connectionLost(self, reason):
+        """Called when the connection is shut down.
+
+        This can happen for various reasons including network failure, a clean
+        QUIT or a ctrl-c at the terminal.
+
+        reason is typically an exception of some sort with information as to
+        whether it was a clean disconnect.
+
+        """
         logging.info('Connection lost: %s' % (reason,))
         for name, plug in self.plugs.iteritems():
             plug.cleanup()
@@ -94,6 +155,7 @@ class Shirk(irc.IRCClient):
             self.event_addressed(user, target, message)
 
     def action(self, user, target, msg):
+        """The bot sees someone perform a CTCP ACTION, or "/me"."""
         user = user.split('!', 1)[0]
         msg = msg.strip()
         logging.debug('%s: * %s %s' % (target, user, msg))
@@ -103,7 +165,46 @@ class Shirk(irc.IRCClient):
         else:
             self.event_chanmsg(user, target, msg, True)
 
-    # Shirk's events that modules can register callbacks for
+    ## Shirk's events that modules can register callbacks for
+
+    def event_addressed(self, source, target, msg):
+        """The bot is addressed directly by another user.
+
+        As in "<tim> shirk: hi there".
+        source: The nickname of whoever sent it.
+        target: The channel.
+        msg: The actual message.
+
+        """
+        for plug in self.hooks[Event.addressed]:
+            plug.handle_addressed(source, target, msg)
+
+    def event_chanmsg(self, source, channel, msg, action):
+        """The bot is sent a message in a channel.
+
+        source: The nickname of whoever sent it.
+        channel: The channel.
+        msg: The actual message.
+        action: A bool indicating whether this was a CTCP ACTION ('/me')
+
+        """
+        for plug in self.hooks[Event.private]:
+            plug.handle_chanmsg(source, channel, msg, action)
+
+    def event_command(self, source, target, argv):
+        """The bot receives a !command.
+
+        source: The nickname of whoever sent it.
+        target: The channel.
+        argv: A list of the command and any arguments.
+
+        """
+        if argv[0] in self.hooks[Event.command]:
+            # copying, otherwise any command that modifies the plug collection
+            # raises an error "Set changed size during iteration"
+            to_call = set(self.hooks[Event.command][argv[0]])
+            for plug in to_call:
+                plug.handle_command(source, target, argv)
 
     def event_private(self, source, msg, action):
         """The bot is sent a message in PM.
@@ -116,45 +217,15 @@ class Shirk(irc.IRCClient):
         for plug in self.hooks[Event.private]:
             plug.handle_private(source, msg, action)
 
-    def event_chanmsg(self, source, channel, msg, action):
-        """The bot is sent a message in a channel.
-
-        source: The nickname of whoever sent it
-        channel: The channel
-        msg: The actual message
-        action: A bool indicating whether this was a CTCP ACTION ('/me')
-
-        """
-        for plug in self.hooks[Event.private]:
-            plug.handle_chanmsg(source, channel, msg, action)
-
-    def event_command(self, source, target, argv):
-        if argv[0] in self.hooks[Event.command]:
-            # copying, otherwise any command that modifies the plug collection
-            # raises an error "Set changed size during iteration"
-            to_call = set(self.hooks[Event.command][argv[0]])
-            for plug in to_call:
-                plug.handle_command(source, target, argv)
-            
-    def event_addressed(self, source, target, message):
-        for plug in self.hooks[Event.addressed]:
-            plug.handle_addressed(source, target, message)
-
-    # Things modules will want to use
+    ## Things modules will want to use
 
     def add_command(self, cmd, plug):
         """Add a callback for a specific !commmand.
 
-        Params
-
         cmd: The command that should trigger the callback, without the leading
             prefix (so 'command', not '!command')
-        callback: The function that should be called when the command is used.
-            Params for the callback are:
-            - source: a userinfo dict
-            - target: either the name of the channel or the nick of the bot.
-            - cmd: the actual command
-            - argv: a list of all (if any) arguments, split() on whitespace.
+        plug: The plug that wants to be notified.  See plugbase for a 
+            description of the arguments.
 
         """
         if cmd not in self.hooks[Event.command]:
@@ -182,21 +253,9 @@ class Shirk(irc.IRCClient):
             self.hooks[event].add(plug)
             return True
 
-    def shutdown(self, msg):
-        """Shutdown, as it says on the tin.
-
-        Tell all plugs to clean up, tell the factory that we're shutting down
-        and then quit with the specified message.
-
-        """
-        for name, plug in self.plugs.iteritems():
-            plug.cleanup()
-        self.factory.shuttingdown = True
-        self.quit(msg)
-
 
 class ShirkFactory(protocol.ClientFactory):
-    """A factory for LogBots.
+    """A factory for Shirk.
 
     A new protocol instance will be created each time we connect to the server.
     """
@@ -240,6 +299,7 @@ if __name__ == '__main__':
         'channels': [],
         'server': 'chat.freenode.net',
         'port': 6667,
+        'plugs': ['Core', 'Quit'],
         'cmd_prefix': '!',
         'reconnect_delay': 120
     }

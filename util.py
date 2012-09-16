@@ -1,6 +1,10 @@
-# utility module for Shirk, containing assorted constants et al.
+# Copyright (c) 2012 Dominic van Berkel
+# See LICENSE for details.
+
+"""Utility module for Shirk, containing assorted constants etc."""
+
 class Event:
-    command = 'event_command'
     addressed = 'event_addressed'
-    private = 'event_private'
     chanmsg = 'event_chanmsg'
+    command = 'event_command'
+    private = 'event_private'    
