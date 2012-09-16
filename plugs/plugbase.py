@@ -36,3 +36,13 @@ class Plug(object):
             self.core.msg(target, msg)
         else:
             self.core.msg(source, msg)
+
+    def handle_command(self, source, target, argv):
+        callback = getattr(self, 'cmd_'+argv[0], self.unhandled_cmd)
+        callback(source, target, argv)
+
+    def handle_addressed(self, source, target, message):
+        pass
+
+    def unhandled_cmd(self, source, target, argv):
+        self.log.warning('Received unhandled command: %s > %s %r' % (source, target, argv))

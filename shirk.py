@@ -86,8 +86,8 @@ class Shirk(irc.IRCClient):
         else:
             self.event_chanmsg(user, target, msg, False)
         if msg.startswith(self.cmd_prefix) and len(msg) > 1:
-            args = msg[len(self.cmd_prefix):].split()
-            self.event_command(user, target, args[0], args[1:])
+            argv = msg[len(self.cmd_prefix):].split()
+            self.event_command(user, target, argv)
         elif msg.startswith(self.nickname):
             # +1 to account for : or , or whatever
             message = msg[len(self.nickname)+1:].strip()
@@ -128,13 +128,13 @@ class Shirk(irc.IRCClient):
         for plug in self.hooks[Event.private]:
             plug.handle_chanmsg(source, channel, msg, action)
 
-    def event_command(self, source, target, cmd, argv):
-        if cmd in self.hooks[Event.command]:
+    def event_command(self, source, target, argv):
+        if argv[0] in self.hooks[Event.command]:
             # copying, otherwise any command that modifies the plug collection
             # raises an error "Set changed size during iteration"
-            to_call = set(self.hooks[Event.command][cmd])
+            to_call = set(self.hooks[Event.command][argv[0]])
             for plug in to_call:
-                plug.handle_command(source, target, cmd, argv)
+                plug.handle_command(source, target, argv)
             
     def event_addressed(self, source, target, message):
         for plug in self.hooks[Event.addressed]:
