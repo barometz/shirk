@@ -20,7 +20,7 @@ class Plug(object):
         self.log = logging.getLogger('plug-'+self.name)
         self.log.info("Loading")
         self.core = core
-        self.users = core.users.users
+        self.users = core.users
         self.load()
 
     def load(self):

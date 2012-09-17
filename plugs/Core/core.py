@@ -31,17 +31,17 @@ class CorePlug(plugbase.Plug):
 
     def cmd_quit(self, source, target, argv):
         """Disconnect and close."""
-        if self.users[source].power >= 10:
+        if self.users.by_nick(source).power >= 10:
             self.core.shutdown('Requested by ' + source)
 
     def cmd_raw(self, source, target, argv):
         """Send a raw message to the server."""
-        if self.users[source].power >= 10:
+        if self.users.by_nick(source).power >= 10:
             self.core.sendLine(' '.join(argv[1:]))
 
     def cmd_reload(self, source, target, argv):
         """Reload specified modules."""
-        if self.users[source].power >= 10:
+        if self.users.by_nick(source).power >= 10:
             for plugname in argv[1:]:
                 # keep core safe in case this plug is being reloaded, which
                 # clears self.core

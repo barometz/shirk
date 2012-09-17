@@ -22,7 +22,7 @@ class AuthPlug(plugbase.Plug):
         every channel a user is in.  A userintroduced event?
 
         """
-        user = self.users[nickname]
+        user = self.users.by_nick(nickname)
         user.power = 0
         if user.hostmask in self.config['hosts']:
             user.power = self.config['hosts'][user.hostmask]
@@ -36,6 +36,7 @@ class AuthPlug(plugbase.Plug):
         nickname = params[1]
         account = params[2]
         if account in self.config['users']:
-            self.users[nickname].power = self.config['users'][account]
+            user = self.users.by_nick(nickname)
+            user.power = self.config['users'][account]
             self.log.info('Power of %s set to %d based on account: %s' % \
-                (nickname, self.users[nickname].power, account))
+                (nickname, user.power, account))
