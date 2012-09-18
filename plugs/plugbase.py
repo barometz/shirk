@@ -63,12 +63,12 @@ class Plug(object):
     def handle_addressed(self, source, target, message):
         """Called when the bot is directly addressed by a user."""
         self.log.warning('handle_addressed has been triggered, but the plug \
-            doesn\'t override it.')
+doesn\'t override it.')
 
     def handle_chanmsg(self, source, target, msg, action):
         """Called when the bot receives a message in a channel."""
         self.log.warning('handle_chanmsg has been triggered, but the plug \
-            doesn\'t override it.')
+doesn\'t override it.')
 
     def handle_command(self, source, target, argv):
         """Call the right function when a !command is passed to this plug.
@@ -83,12 +83,12 @@ class Plug(object):
     def handle_private(self, source, msg, action):
         """Called when the bot receives a private message"""
         self.log.warning('handle_private has been triggered, but the plug \
-            doesn\'t override it.')  
+doesn\'t override it.')  
 
     def handle_userjoined(self, nickname, channel):
         """Called when a user has joined a channel."""
         self.log.warning('handle_userjoined has been triggered, but the plug \
-            doesn\'t override it.')  
+doesn\'t override it.')  
 
     def handle_raw(self, command, prefix, params):
         """Called for the raw hooks.
