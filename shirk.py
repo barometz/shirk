@@ -252,7 +252,7 @@ class Shirk(irc.IRCClient):
         action: A bool indicating whether this was a CTCP ACTION ('/me')
 
         """
-        for plug in self.hooks[Event.private]:
+        for plug in self.hooks[Event.chanmsg]:
             plug.handle_chanmsg(source, channel, msg, action)
 
     def event_command(self, source, target, argv):
@@ -412,7 +412,7 @@ if __name__ == '__main__':
         'server': 'chat.freenode.net',
         'port': 6667,
         # The plugs to load at startup.  
-        'plugs': ['Core', 'Auth'],
+        'plugs': ['Core', 'Auth', 'Wiggly'],
         # The prefix for !commands (or +commands, or @commands, or..)
         'cmd_prefix': '!',
         # Delay between reconnections when there's a connection failure.
