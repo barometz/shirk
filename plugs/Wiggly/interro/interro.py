@@ -17,8 +17,7 @@ class Interro(object):
     add them to the list.  After start() is called, messages will be
     chronologically filled with messages from questions as they roll in.
     Submit answers through answer() as long as complete isn't True, then call
-    results() to get a dictionary of results.  Terminates when an InterroQ is
-    processed that doesn't actually have a question attached to it.
+    results() to get a dictionary of results.
 
     """    
     def __init__(self, msg_callback=None, complete_callback=None):
