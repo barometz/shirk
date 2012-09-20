@@ -3,7 +3,7 @@
 # Copyright (c) 2012 Dominic van Berkel.  See LICENSE for details.
 #
 
-from questions import *
+# from questions import *
 
 class Interro:
     """Core "interrogation" class.
@@ -24,6 +24,7 @@ class Interro:
     def __init__(self, msg_callback=None):
         self.messages = []
         self.questions = {}
+        self.answers = {}
         self.current = None
         self.complete = False
         self._pendinganswer = None
@@ -32,11 +33,7 @@ class Interro:
 
     def results(self):
         """Get a dictionary of {name: value} with the results so far"""
-        res = {}
-        for q in self.questions.values():
-            if q.value is not None:
-                res[q.name] = q.value
-        return res
+        return self.answers
 
     def add(self, question):
         """Add an InterroQ instance to the list."""
@@ -65,17 +62,20 @@ class Interro:
             self._pendingconfirmation = False
         else:
             # Throw the answer at the current question
-            if cur.validate(value):
-                cur.store(value)
-                if cur.confirm:
-                    self._pendingconfirmation = True
-                    confirmq = 'You entered {value}.  Are you certain? [yes/no]'
-                    self._msg(confirmq.format(value=value))
-                else:
-                    self._nextquestion()
-            else:
-                self._msg('Error: {0}'.format(cur.error))
+            result, error = cur.process(value)
+            if error is not None:
+                self._msg('Error: {0}'.format(error))
                 self._msg(cur.question)
+            elif cur.confirm:
+                # Ask for confirmation
+                self.answers[cur.name] = result
+                self._pendingconfirmation = True
+                confirmq = 'You entered {value}.  Are you certain? [yes/no]'
+                self._msg(confirmq.format(value=value))
+            else:
+                # No confirmation needed, so just store it
+                self.answers[cur.name] = result
+                self._nextquestion()
 
     def _nextquestion(self, goto=None):
         """Move to the next question, if any.
@@ -85,7 +85,10 @@ class Interro:
 
         """
         if self.current:
-            nextq = self.current.nextq()
+            # answer defaults to None when the current question didn't have an
+            # answer - for instance, when it wasn't actually a question.
+            answer = self.answers.get(self.current.name)
+            nextq = self.current.nextq(answer)
         else:
             nextq = None
         if goto is None and nextq is None:

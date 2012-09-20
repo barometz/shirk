@@ -49,8 +49,6 @@ class InterroQ:
         self.onanswer = onanswer or {}
         self.validation = validation or []
         self.confirm = confirm
-        self.error = None
-        self.value = None
         self.add_typechecks()
 
     def add_typechecks(self, *args):
@@ -60,7 +58,7 @@ class InterroQ:
         and throw that at super() together with *args.
 
         """
-        self.type_validation = args
+        self.type_validation = list(args)
 
     def preprocess(self, value):
         """Cleanup and essential formatting of input.
@@ -71,24 +69,22 @@ class InterroQ:
         """
         return value
 
-    def validate(self, value):
-        """Runs the value through all known tests.
+    def process(self, value):
+        """Preprocess, validate, parse.
 
-        Starts with type validation, then moves on to user-configured 
-        requirements.
+        Returns a 2-tuple containing the parsed value and an error message if
+        validation failed.  If validation did not fail, the error is None.
 
         """
+        error = None
         value = self.preprocess(value)
-        for test, error in self.type_validation:
+        for test, err in self.type_validation + self.validation:
             if not test(value):
-                self.error = error
-                return False
-        for test, error in self.validation:
-            if not test(value):
-                self.error = error
-                return False
-        self.error = None
-        return True
+                error = err
+                break
+        if not error:
+            value = self.parse(value)
+        return (value, error)
 
     def parse(self, value):
         """Convert the value to someting appropriate for the question type.
@@ -101,14 +97,10 @@ class InterroQ:
         """
         return self.preprocess(value)
 
-    def store(self, value):
-        """Parse and store the input."""
-        self.value = self.parse(value)
-
-    def nextq(self):
-        """Find out what the next question is based on the current value."""
-        if self.onanswer and self.value in self.onanswer:
-            return self.onanswer[self.value]
+    def nextq(self, value):
+        """Find out what the next question is based on the provided value."""
+        if self.onanswer and value in self.onanswer:
+            return self.onanswer[value]
         else:
             return self.default_next
             
