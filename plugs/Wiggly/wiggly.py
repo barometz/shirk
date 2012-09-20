@@ -29,6 +29,8 @@ class WigglyPlug(plugbase.Plug):
                 convo = interro.Interro(
                     msg_callback=lambda msg: self.core.msg(user.nickname, msg),
                     complete_callback=lambda results: self.convo_complete(user.uid, results))
+                operator = self.users.by_nick(source).uid
+                convo.operator = user.uid
                 self.fill_convo(convo)
                 self.conversations[user.uid] = convo
                 convo.start()
@@ -44,7 +46,17 @@ class WigglyPlug(plugbase.Plug):
             self.conversations[user.uid].answer(msg)
 
     def convo_complete(self, uid, results):
-        self.process_results(uid, results)
+        if not results['TOS']:
+            message = '%s did not agree to the TOS.'
+        elif self.process_results(uid, results):
+            message = '%s has successfully registered an account.'
+        else:
+            message = '%s could not register an account due to an error in processing.'
+        operator = self.users.by_uid(self.conversations[uid].operator)
+        if operator:
+            # is the operator still online?
+            user = self.users.by_uid(uid).nickname
+            self.core.notice(operator.nickname, message % (user,))
         del self.conversations[uid]
 
     def fill_convo(self, convo):
@@ -53,8 +65,13 @@ class WigglyPlug(plugbase.Plug):
             convo.add(q)
 
     def process_results(self, uid, results):
-        """Adds the user to the system etc."""
+        """Adds the user to the system etc.
+
+        Returns True when everything appears to have worked, False otherwise.
+
+        """
         self.core.msg('##shirk', str(results))
+        return True
 
     def test_username_format(self, username):
         """Tests whether a username matches the format required by the system.
@@ -115,6 +132,7 @@ password after registration and if you ever need it to be reset.",
                     (lambda x: '\t' not in x, 'Invalid address: whitespace.'),
                     (lambda x: '\n' not in x, 'Invalid address: whitespace.'),
                     (lambda x: ';' not in x, 'Invalid address: bad characters.')],
+                confirm=True,
                 default_next='username'),
 
             interro.TextQ('username',
@@ -125,6 +143,7 @@ digits, dashes and underscores, and start with a letter.",
                 question="What is your desired username?",
                 validation=[(self.test_username_format, 'Invalid format'),
                     (self.test_username_free, 'That username is already in use.')],
+                confirm=True,
                 default_next='final'),
 
             interro.MessageQ('final',
