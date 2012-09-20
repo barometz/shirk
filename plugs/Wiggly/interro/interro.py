@@ -5,7 +5,7 @@
 
 # from questions import *
 
-class Interro:
+class Interro(object):
     """Core "interrogation" class.
 
     Keeps track of the questions in what is essentially a singly-linked list.
@@ -21,7 +21,7 @@ class Interro:
     processed that doesn't actually have a question attached to it.
 
     """    
-    def __init__(self, msg_callback=None):
+    def __init__(self, msg_callback=None, complete_callback=None):
         self.messages = []
         self.questions = {}
         self.answers = {}
@@ -30,6 +30,7 @@ class Interro:
         self._pendinganswer = None
         self._pendingconfirmation = False
         self._msg = msg_callback or self.messages.append
+        self._complete_callback = complete_callback
 
     def results(self):
         """Get a dictionary of {name: value} with the results so far"""
@@ -42,6 +43,12 @@ class Interro:
     def start(self, start='start'):
         """Start pulling questions."""
         self._nextquestion(goto=start)
+
+    def convo_complete(self):
+        """Mark as complete and run complete_callback"""
+        self.complete = True
+        if self._complete_callback:
+            self._complete_callback(self.results())
 
     def answer(self, value):
         """Process an answer.
@@ -92,7 +99,7 @@ class Interro:
         else:
             nextq = None
         if goto is None and nextq is None:
-            self.complete = True
+            self.convo_complete()
         else:
             goto = goto or nextq
             self.current = self.questions[goto]

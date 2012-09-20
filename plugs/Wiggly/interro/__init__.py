@@ -1,6 +1,6 @@
 # module __init__ for interro
-import interro.interro as inter
-from interro.questions import *
+from . import interro
+from .questions import *
 
-Interro = inter.Interro
+Interro = interro.Interro
 

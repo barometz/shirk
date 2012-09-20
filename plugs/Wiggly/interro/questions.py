@@ -3,7 +3,7 @@
 # Copyright (c) 2012 Dominic van Berkel.  See LICENSE for details.
 #
 
-class InterroQ:
+class InterroQ(object):
     """Base class for Interro questions.  
 
     InterroQ has some infrastructure for validation checks, type checks that
@@ -117,11 +117,11 @@ class TextQ(InterroQ):
 
     def __init__(self, name, empty_allowed=False, **kwargs):
         self.empty_allowed = empty_allowed
-        super().__init__(name, **kwargs)
+        super(TextQ, self).__init__(name, **kwargs)
 
     def add_typechecks(self, *args):
         empty = (self.test_empty, 'This may not be empty.')
-        super().add_typechecks(empty, *args)
+        super(TextQ, self).add_typechecks(empty, *args)
 
     def preprocess(self, value):
         return value.strip()
@@ -141,7 +141,7 @@ class YesNoQ(InterroQ):
 
     def add_typechecks(self, *args):
         yesno = (lambda x: x in ['y', 'yes', 'n', 'no'], 'Please enter yes or no.')
-        super().add_typechecks(yesno, *args)
+        super(YesNoQ, self).add_typechecks(yesno, *args)
 
     def preprocess(self, value):
         return value.strip().lower()
@@ -161,19 +161,19 @@ class MessageQ(InterroQ):
 
     """
     def __init__(self, name, message='', default_next=None, **kwargs):
-        super().__init__(name, message=message, default_next=default_next)
+        super(MessageQ, self).__init__(name, message=message, default_next=default_next)
 
 
 class NumberQ(InterroQ):
     req_positive = False
     def __init__(self, name, req_positive=False, **kwargs):
         self.req_positive = req_positive
-        super().__init__(name, **kwargs)
+        super(NumberQ, self).__init__(name, **kwargs)
 
     def add_typechecks(self, *args):
         number = (self.check_number, 'Please enter a whole number')
         positive = (self.check_positive, 'Please enter a positive number')
-        super().add_typechecks(number, positive, *args)
+        super(NumberQ, self).add_typechecks(number, positive, *args)
 
     def preprocess(self, value):
         return value.strip()
