@@ -29,10 +29,11 @@ class CorePlug(plugbase.Plug):
         response = ', '.join(self.core.plugs)
         self.respond(source, target, response)
 
+    @plugbase.command(level=10)
     def cmd_quit(self, source, target, argv):
         """Disconnect and close."""
-        if self.users.by_nick(source).power >= 10:
-            self.core.shutdown('Requested by ' + source)
+#        if self.users.by_nick(source).power >= 10:
+        self.core.shutdown('Requested by ' + source)
 
     def cmd_raw(self, source, target, argv):
         """Send a raw message to the server."""

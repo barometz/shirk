@@ -5,6 +5,23 @@
 
 import logging
 
+def command(level = None):
+    """Decorator for !commands.  
+
+    Given a function cmd_foo this will add a hook for !foo.  If level is
+    provided and not None, require that the user giving the command has at
+    least that level.
+    """
+    def decorator(f):
+        def newf(*args):
+            plug = args[0]
+            source = args[1]
+            print args
+            if level is None or plug.users.by_nick(source).power >= level:
+                f(*args)
+        return newf
+    return decorator
+
 class Plug(object):
     """Base class for Shirk plugs.
 
