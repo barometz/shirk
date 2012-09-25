@@ -111,6 +111,8 @@ class Shirk(irc.IRCClient):
 
         """
         logging.info('Connected to server')
+        # Connected successfully, so reset the reconn delay
+        self.factory.resetDelay()
         self.users = users.Users()
         self.nickname = self.config['nickname']
         self.password = self.config['password']
@@ -130,9 +132,14 @@ class Shirk(irc.IRCClient):
 
         """
         logging.info('Connection lost: %s' % (reason,))
-        for name, plug in self.plugs.iteritems():
-            plug.cleanup()
-        del self.users
+        try:
+            for name, plug in self.plugs.iteritems():
+                plug.cleanup()
+            del self.users
+        except AttributeError:
+            # this happens when the bot is shutdown before having connected 
+            # and signed on properly, no need to worry.
+            pass
         irc.IRCClient.connectionLost(self, reason)
 
     def signedOn(self):
@@ -358,15 +365,22 @@ class Shirk(irc.IRCClient):
             self.hooks[Event.raw][cmd] = set()
         self.hooks[Event.raw][cmd].add(plug)
 
-class ShirkFactory(protocol.ClientFactory):
+
+class ShirkFactory(protocol.ReconnectingClientFactory):
     """A factory for Shirk.
 
     A new protocol instance will be created each time we connect to the server.
-    """
-    shuttingdown = False
 
+    """
     def __init__(self, config):
+        self.shuttingdown = False
         self.config = config
+        # self.noisy is used by ReconnClientFactory to enable logging, but as
+        # that uses twisted.python.log we'll just do it ourselves, yes?
+        self.noisy = False
+        self.initialDelay = config['reconn_delay']
+        self.delay = self.initialDelay
+        self.maxRetries = config['reconn_tries']
 
     def buildProtocol(self, addr):
         p = Shirk()
@@ -380,8 +394,10 @@ class ShirkFactory(protocol.ClientFactory):
             logging.info('Shutting down')
             reactor.stop()
         else:
-            logging.info('Reconnecting')
-            connector.connect()
+            logging.info('Lost connection.')
+            protocol.ReconnectingClientFactory.clientConnectionLost(
+                self, connector, reason)
+            logging.info('Attempting reconnection in %d seconds.' % (self.delay,))
 
     def clientConnectionFailed(self, connector, reason):
         """Failed to connect to the server, so try to reconnect.
@@ -389,8 +405,14 @@ class ShirkFactory(protocol.ClientFactory):
         Todo: write something nice to reconnect with increasing intervals.
 
         """
-        logging.critical('Connection failed, reconnecting in a bit.')
-        reactor.callLater(self.config['reconnect_delay'], connector.connect)
+        logging.info('Connection failed.')
+        protocol.ReconnectingClientFactory.clientConnectionFailed(
+            self, connector, reason)
+        if self.maxRetries is not None and (self.retries > self.maxRetries):
+            logging.error('Abandoning reconnection after %d tries' % (self.retries,))
+            reactor.stop()
+        else:
+            logging.info('Attempting reconnection in %d seconds.' % (self.delay,))
 
 
 if __name__ == '__main__':
@@ -412,11 +434,14 @@ if __name__ == '__main__':
         'server': 'chat.freenode.net',
         'port': 6667,
         # The plugs to load at startup.  
-        'plugs': ['Core', 'Auth', 'Wiggly'],
+        'plugs': ['Core', 'Auth'],
         # The prefix for !commands (or +commands, or @commands, or..)
         'cmd_prefix': '!',
-        # Delay between reconnections when there's a connection failure.
-        'reconnect_delay': 120
+        # Initial delay between reconnections when there's a connection 
+        # failure.
+        'reconn_delay': 1,
+        # Maximum reconnection retries
+        'reconn_tries': 8
     }
     config.update(json.load(open('conf.json')))
     loglevel = {0: logging.WARNING,
