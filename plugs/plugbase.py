@@ -4,6 +4,23 @@
 """Plugin base for Shirk."""
 
 import logging
+from functools import wraps
+
+def level(level):
+    """Decorator for !commands.  
+
+    When applied to a function cmd_foo(self, nickname, *args) this will check
+    whether the user known by nickname has a power of at least level.
+
+    """
+    def decorator(f):
+        @wraps(f)
+        def newf(self, nickname, *args):
+            user = self.users.by_nick(nickname)
+            if user and user.power >= level:
+                f(self, nickname, *args)
+        return newf
+    return decorator
 
 class Plug(object):
     """Base class for Shirk plugs.
