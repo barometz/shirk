@@ -19,21 +19,21 @@ class WigglyPlug(plugbase.Plug):
     def load(self):
         self.conversations = {}
         self.create_questions()
-
+        
+    @plugbase.level(10)
     def cmd_register(self, source, target, argv):
-        if self.users.by_nick(source).power >= 10:
-            if len(argv) < 2:
-                return
-            user = self.users.by_nick(argv[1])
-            if user and user.uid not in self.conversations:
-                convo = interro.Interro(
-                    msg_callback=lambda msg: self.core.msg(user.nickname, msg),
-                    complete_callback=lambda results: self.convo_complete(user.uid, results))
-                operator = self.users.by_nick(source).uid
-                convo.operator = user.uid
-                self.fill_convo(convo)
-                self.conversations[user.uid] = convo
-                convo.start()
+        if len(argv) < 2:
+            return
+        user = self.users.by_nick(argv[1])
+        if user and user.uid not in self.conversations:
+            convo = interro.Interro(
+                msg_callback=lambda msg: self.core.msg(user.nickname, msg),
+                complete_callback=lambda results: self.convo_complete(user.uid, results))
+            operator = self.users.by_nick(source).uid
+            convo.operator = user.uid
+            self.fill_convo(convo)
+            self.conversations[user.uid] = convo
+            convo.start()
         # Clean up dead convos
         convos = self.conversations.keys()
         for uid in convos:
