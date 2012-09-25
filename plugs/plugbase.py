@@ -4,21 +4,21 @@
 """Plugin base for Shirk."""
 
 import logging
+from functools import wraps
 
-def command(level = None):
+def level(level):
     """Decorator for !commands.  
 
-    Given a function cmd_foo this will add a hook for !foo.  If level is
-    provided and not None, require that the user giving the command has at
-    least that level.
+    When applied to a function cmd_foo(self, nickname, *args) this will check
+    whether the user known by nickname has a power of at least level.
+
     """
     def decorator(f):
-        def newf(*args):
-            plug = args[0]
-            source = args[1]
-            print args
-            if level is None or plug.users.by_nick(source).power >= level:
-                f(*args)
+        @wraps(f)
+        def newf(self, nickname, *args):
+            user = self.users.by_nick(nickname)
+            if user and user.power >= level:
+                f(self, nickname, *args)
         return newf
     return decorator
 

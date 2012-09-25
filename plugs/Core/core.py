@@ -29,30 +29,29 @@ class CorePlug(plugbase.Plug):
         response = ', '.join(self.core.plugs)
         self.respond(source, target, response)
 
-    @plugbase.command(level=10)
+    @plugbase.level(10)
     def cmd_quit(self, source, target, argv):
         """Disconnect and close."""
-#        if self.users.by_nick(source).power >= 10:
         self.core.shutdown('Requested by ' + source)
 
+    @plugbase.level(10)
     def cmd_raw(self, source, target, argv):
         """Send a raw message to the server."""
-        if self.users.by_nick(source).power >= 10:
-            self.core.sendLine(' '.join(argv[1:]))
+        self.core.sendLine(' '.join(argv[1:]))
 
+    @plugbase.level(10)
     def cmd_reload(self, source, target, argv):
         """Reload specified modules."""
-        if self.users.by_nick(source).power >= 10:
-            for plugname in argv[1:]:
-                # keep core safe in case this plug is being reloaded, which
-                # clears self.core
-                core = self.core
-                try:
-                    core.remove_plug(plugname)
-                except KeyError:
-                    self.log.warning('Tried to remove unknown plug %s.' % (plugname,))
-                try:
-                    core.load_plug(plugname)
-                except ImportError:
-                    self.respond(source, target, 'Failed to import %s.' % (plugname,))
+        for plugname in argv[1:]:
+            # keep core safe in case this plug is being reloaded, which
+            # clears self.core
+            core = self.core
+            try:
+                core.remove_plug(plugname)
+            except KeyError:
+                self.log.warning('Tried to remove unknown plug %s.' % (plugname,))
+            try:
+                core.load_plug(plugname)
+            except ImportError:
+                self.respond(source, target, 'Failed to import %s.' % (plugname,))
 
