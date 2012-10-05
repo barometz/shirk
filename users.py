@@ -3,6 +3,7 @@
 
 import logging
 
+
 class User(object):
     _uid = 0
 
@@ -18,6 +19,7 @@ class User(object):
     def next_uid(cls):
         cls._uid += 1
         return cls._uid
+
 
 class Users(object):
     """User management for Shirk.
@@ -45,19 +47,22 @@ class Users(object):
     def user_joined(self, nickname, username, hostmask, channel):
         if nickname in self.users_by_nick:
             self.users_by_nick[nickname].channels.add(channel)
-            self.log.debug('Added user %s to channel %s' % (nickname, channel))
+            self.log.debug('Added user %s to channel %s'
+                % (nickname, channel))
         else:
             user = User(nickname, username, hostmask, channel)
             self.users_by_nick[nickname] = user
             self.users_by_uid[user.uid] = user
-            self.log.debug('Added user %s (uid=%d) to the global userlist, channel %s' % (nickname, user.uid, channel))
+            msg = 'Added user %s (uid=%d) to the global userlist, channel %s'
+            self.log.debug(msg % (nickname, user.uid, channel))
 
     def user_left(self, nickname, channel):
         """A user is no longer in a channel due to a part or kick."""
         if nickname in self.users_by_nick:
             user = self.users_by_nick[nickname]
             user.channels.discard(channel)
-            self.log.debug('Removed channel %s from user %s' % (channel, nickname))
+            self.log.debug('Removed channel %s from user %s'
+                % (channel, nickname))
             if not user.channels:
                 self.delete_user(user)
 
@@ -75,7 +80,8 @@ class Users(object):
             user.nickname = newnick
             self.users_by_nick[newnick] = user
             del self.users_by_nick[oldnick]
-            self.log.debug('Changed nickname of %s to %s' % (oldnick, newnick))
+            self.log.debug('Changed nickname of %s to %s'
+                % (oldnick, newnick))
 
     def delete_user(self, user):
         """Deletes a user, as far as we can from here.

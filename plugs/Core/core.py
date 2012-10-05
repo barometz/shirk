@@ -4,6 +4,7 @@
 from plugs import plugbase
 from util import Event
 
+
 class CorePlug(plugbase.Plug):
     """Core stuff plug for Shirk.
 
@@ -19,8 +20,8 @@ class CorePlug(plugbase.Plug):
     def cmd_commands(self, source, target, argv):
         """List registered commands."""
         # Only list those commands that have any plugs
-        response = ', '.join([cmd for cmd \
-            in self.core.hooks[Event.command].keys() \
+        response = ', '.join([cmd for cmd
+            in self.core.hooks[Event.command].keys()
             if self.core.hooks[Event.command][cmd]])
         self.respond(source, target, response)
 
@@ -49,9 +50,10 @@ class CorePlug(plugbase.Plug):
             try:
                 core.remove_plug(plugname)
             except KeyError:
-                self.log.warning('Tried to remove unknown plug %s.' % (plugname,))
+                self.log.warning('Tried to remove unknown plug %s.'
+                    % (plugname,))
             try:
                 core.load_plug(plugname)
             except ImportError:
-                self.respond(source, target, 'Failed to import %s.' % (plugname,))
-
+                self.respond(source, target, 'Failed to import %s.'
+                    % (plugname,))

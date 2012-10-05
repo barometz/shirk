@@ -24,7 +24,7 @@ class Shirk(irc.IRCClient):
 
     Shirk provides a fairly thin layer of glue between twisted.w.p.i.IRCClient
     and the plugs, providing configurability and further abstraction of stuff
-    users do that the bot can respond to.  
+    users do that the bot can respond to.
 
     There's some support for live loading and reloading of plugs, a number of
     events that plugs can subscribe to and a User abstraction so plugs can
@@ -39,12 +39,12 @@ class Shirk(irc.IRCClient):
     def load_plugs(self):
         """Load the plugs listed in config."""
         self.plugs = {}
-        self.hooks = {Event.raw:        {},    # dictionary of 'command': set([plug, plug])
-                      Event.command:    {},    # idem
-                      Event.addressed:  set(), # |
-                      Event.chanmsg:    set(), # |
-                      Event.private:    set(), # | these are all sets of callbacks
-                      Event.userjoined: set()} # |
+        self.hooks = {Event.raw:        {},     # dictionary of
+                      Event.command:    {},     # 'command': set([plug, plug])
+                      Event.addressed:  set(),  # |
+                      Event.chanmsg:    set(),  # | these are all sets of
+                      Event.private:    set(),  # | callbacks
+                      Event.userjoined: set()}  # |
         for plugname in self.config['plugs']:
             self.load_plug(plugname)
 
@@ -56,7 +56,7 @@ class Shirk(irc.IRCClient):
         Raises ImportError if the module can't be found.
 
         """
-        module = importlib.import_module('plugs.'+plugname)
+        module = importlib.import_module('plugs.' + plugname)
         reload(module)
         plug = module.Plug(self)
         self.plugs[plugname] = plug
@@ -137,7 +137,7 @@ class Shirk(irc.IRCClient):
                 plug.cleanup()
             del self.users
         except AttributeError:
-            # this happens when the bot is shutdown before having connected 
+            # this happens when the bot is shutdown before having connected
             # and signed on properly, no need to worry.
             pass
         irc.IRCClient.connectionLost(self, reason)
@@ -189,7 +189,7 @@ class Shirk(irc.IRCClient):
             self.event_command(user, target, argv)
         elif msg.startswith(self.nickname):
             # +1 to account for : or , or whatever
-            message = msg[len(self.nickname)+1:].strip()
+            message = msg[len(self.nickname) + 1:].strip()
             self.event_addressed(user, target, message)
 
     def action(self, user, target, msg):
@@ -216,10 +216,10 @@ class Shirk(irc.IRCClient):
 
     def irc_RPL_WHOREPLY(self, prefix, params):
         """Received a reply to a vanilla WHO command"""
-        self.users.user_joined(params[5], # nickname
-                               params[2], # username
-                               params[3], # hostmask
-                               params[1]) # channel
+        self.users.user_joined(params[5],  # nickname
+                               params[2],  # username
+                               params[3],  # hostmask
+                               params[1])  # channel
         self.event_userjoined(params[5], params[1])
 
     def lineReceived(self, line):
@@ -321,7 +321,7 @@ class Shirk(irc.IRCClient):
 
         cmd: The command that should trigger the callback, without the leading
             prefix (so 'command', not '!command')
-        plug: The plug that wants to be notified.  See plugbase for a 
+        plug: The plug that wants to be notified.  See plugbase for a
             description of the arguments.
 
         """
@@ -337,7 +337,7 @@ class Shirk(irc.IRCClient):
 
         Params
         event: One of the constant attributes of util.Event.
-        plug: The plug that's requesting to be poked in the event of an 
+        plug: The plug that's requesting to be poked in the event of an
             event.
 
         Returns true if the callback is now registered, false if the event
@@ -397,7 +397,8 @@ class ShirkFactory(protocol.ReconnectingClientFactory):
             logging.info('Lost connection.')
             protocol.ReconnectingClientFactory.clientConnectionLost(
                 self, connector, reason)
-            logging.info('Attempting reconnection in %d seconds.' % (self.delay,))
+            logging.info('Attempting reconnection in %d seconds.'
+                % (self.delay,))
 
     def clientConnectionFailed(self, connector, reason):
         """Failed to connect to the server, so try to reconnect.
@@ -409,10 +410,12 @@ class ShirkFactory(protocol.ReconnectingClientFactory):
         protocol.ReconnectingClientFactory.clientConnectionFailed(
             self, connector, reason)
         if self.maxRetries is not None and (self.retries > self.maxRetries):
-            logging.error('Abandoning reconnection after %d tries' % (self.retries,))
+            logging.error('Abandoning reconnection after %d tries'
+                % (self.retries,))
             reactor.stop()
         else:
-            logging.info('Attempting reconnection in %d seconds.' % (self.delay,))
+            logging.info('Attempting reconnection in %d seconds.'
+                % (self.delay,))
 
 
 if __name__ == '__main__':
@@ -433,11 +436,11 @@ if __name__ == '__main__':
         'channels': [],
         'server': 'chat.freenode.net',
         'port': 6667,
-        # The plugs to load at startup.  
+        # The plugs to load at startup.
         'plugs': ['Core', 'Auth', 'Wiggly'],
         # The prefix for !commands (or +commands, or @commands, or..)
         'cmd_prefix': '!',
-        # Initial delay between reconnections when there's a connection 
+        # Initial delay between reconnections when there's a connection
         # failure.
         'reconn_delay': 1,
         # Maximum reconnection retries
@@ -447,12 +450,14 @@ if __name__ == '__main__':
     loglevel = {0: logging.WARNING,
                 1: logging.INFO,
                 2: logging.DEBUG}[config['debug']]
-    logging.basicConfig(format='%(asctime)s %(levelname)-8s %(name)s: %(message)s', 
-                        level=loglevel,
-                        datefmt='%m/%d %H:%M:%S')
-    
+    logging.basicConfig(
+        format='%(asctime)s %(levelname)-8s %(name)s: %(message)s',
+        level=loglevel,
+        datefmt='%m/%d %H:%M:%S')
+
     # Create and connect the client factory
     f = ShirkFactory(config)
     reactor.connectTCP(config['server'], config['port'], f)
     # Push the big red button
     reactor.run()
+>>>>>>> master
