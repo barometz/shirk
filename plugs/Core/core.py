@@ -52,8 +52,14 @@ class CorePlug(plugbase.Plug):
             except KeyError:
                 self.log.warning('Tried to remove unknown plug %s.'
                     % (plugname,))
+            self.core = core
             try:
                 core.load_plug(plugname)
             except ImportError:
                 self.respond(source, target, 'Failed to import %s.'
                     % (plugname,))
+            else:
+                self.respond(source, target, 'Loaded %s.'
+                    % (plugname,))
+            finally:
+                del self.core
