@@ -110,7 +110,8 @@ class Shirk(irc.IRCClient):
         De facto init method.  Old-style classes are awesome, yo.
 
         """
-        logging.info('Connected to server')
+        self.log = self.factory.log
+        self.log.info('Connected to server')
         # Connected successfully, so reset the reconn delay
         self.factory.resetDelay()
         self.users = users.Users()
@@ -131,7 +132,7 @@ class Shirk(irc.IRCClient):
         whether it was a clean disconnect.
 
         """
-        logging.info('Connection lost: %s' % (reason,))
+        self.log.info('Connection lost: %s' % (reason,))
         try:
             for name, plug in self.plugs.iteritems():
                 plug.cleanup()
@@ -144,7 +145,7 @@ class Shirk(irc.IRCClient):
 
     def signedOn(self):
         """Called when bot has succesfully signed on to server."""
-        logging.info('Signed on')
+        self.log.info('Signed on')
         self.load_plugs()
         for chan in self.config['channels']:
             self.join(chan)
@@ -178,7 +179,7 @@ class Shirk(irc.IRCClient):
         """The bot receives a PRIVMSG, either in channel or in PM"""
         user = user.split('!', 1)[0]
         msg = msg.strip()
-        logging.debug('%s: <%s> %s' % (target, user, msg))
+        self.log.debug('%s: <%s> %s' % (target, user, msg))
         # Check to see if they're sending me a private message
         if target == self.nickname:
             self.event_private(user, msg, False)
@@ -196,7 +197,7 @@ class Shirk(irc.IRCClient):
         """The bot sees someone perform a CTCP ACTION, or "/me"."""
         user = user.split('!', 1)[0]
         msg = msg.strip()
-        logging.debug('%s: * %s %s' % (target, user, msg))
+        self.log.debug('%s: * %s %s' % (target, user, msg))
         # Check to see if they're sending me a private message
         if target == self.nickname:
             self.event_private(user, msg, True)
@@ -372,9 +373,10 @@ class ShirkFactory(protocol.ReconnectingClientFactory):
     A new protocol instance will be created each time we connect to the server.
 
     """
-    def __init__(self, config):
+    def __init__(self, config, logger):
         self.shuttingdown = False
         self.config = config
+        self.log = logger
         # self.noisy is used by ReconnClientFactory to enable logging, but as
         # that uses twisted.python.log we'll just do it ourselves, yes?
         self.noisy = False
@@ -391,13 +393,13 @@ class ShirkFactory(protocol.ReconnectingClientFactory):
     def clientConnectionLost(self, connector, reason):
         """If we get disconnected, reconnect to server."""
         if self.shuttingdown:
-            logging.info('Shutting down')
+            self.log.info('Shutting down')
             reactor.stop()
         else:
-            logging.info('Lost connection.')
+            self.log.info('Lost connection.')
             protocol.ReconnectingClientFactory.clientConnectionLost(
                 self, connector, reason)
-            logging.info('Attempting reconnection in %d seconds.'
+            self.log.info('Attempting reconnection in %d seconds.'
                 % (self.delay,))
 
     def clientConnectionFailed(self, connector, reason):
@@ -406,15 +408,15 @@ class ShirkFactory(protocol.ReconnectingClientFactory):
         Todo: write something nice to reconnect with increasing intervals.
 
         """
-        logging.info('Connection failed.')
+        self.log.info('Connection failed.')
         protocol.ReconnectingClientFactory.clientConnectionFailed(
             self, connector, reason)
         if self.maxRetries is not None and (self.retries > self.maxRetries):
-            logging.error('Abandoning reconnection after %d tries'
+            self.log.error('Abandoning reconnection after %d tries'
                 % (self.retries,))
             reactor.stop()
         else:
-            logging.info('Attempting reconnection in %d seconds.'
+            self.log.info('Attempting reconnection in %d seconds.'
                 % (self.delay,))
 
 
@@ -447,16 +449,27 @@ if __name__ == '__main__':
         'reconn_tries': 8
     }
     config.update(json.load(open('conf.json')))
+    
     loglevel = {0: logging.WARNING,
                 1: logging.INFO,
                 2: logging.DEBUG}[config['debug']]
-    logging.basicConfig(
-        format='%(asctime)s %(levelname)-8s %(name)s: %(message)s',
-        level=loglevel,
-        datefmt='%m/%d %H:%M:%S')
+    logger = logging.getLogger('shirk')
+    logger.setLevel(loglevel)
+    consolelog = logging.StreamHandler()
+    consolelog.setLevel(logging.DEBUG)
+    filelog = logging.FileHandler('shirk.log', encoding='utf-8')
+    filelog.setLevel(logging.INFO)
+    consolelog.setFormatter(logging.Formatter(
+        fmt='%(asctime)s %(levelname)-8s %(name)s: %(message)s',
+        datefmt='%m/%d %H:%M:%S'))
+    filelog.setFormatter(logging.Formatter(
+        fmt='%(asctime)s %(levelname)-8s %(name)s: %(message)s',
+        datefmt='%Y-%m-%d/%H:%M:%S'))
+    logger.addHandler(consolelog)
+    logger.addHandler(filelog)
 
     # Create and connect the client factory
-    f = ShirkFactory(config)
+    f = ShirkFactory(config, logger)
     reactor.connectTCP(config['server'], config['port'], f)
     # Push the big red button
     reactor.run()

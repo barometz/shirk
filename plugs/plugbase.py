@@ -36,7 +36,7 @@ class Plug(object):
     rawhooks = []
 
     def __init__(self, core):
-        self.log = logging.getLogger('plug-' + self.name)
+        self.log = core.log.getChild(self.name)
         self.log.info("Loading")
         self.core = core
         self.users = core.users
