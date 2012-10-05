@@ -51,9 +51,11 @@ class WigglyPlug(plugbase.Plug):
       user and prints the new password to STDOUT.
 
     """
+    # Plug settings
     name = 'Wiggly'
     hooks = [Event.private]
     commands = ['approve']
+    # Wiggly-specific options
     approval_threshold = 2
     creation_script = '/home/dominic/coding/shirk/plugs/Wiggly/newuser.sh'
     template_path = '/home/dominic/coding/shirk/plugs/Wiggly/mailtemplate.txt'
@@ -92,11 +94,13 @@ class WigglyPlug(plugbase.Plug):
         """Private message handler.
 
         If the source of the message has been approved for signup, assume 
-        that this is a response to a question and send it to the Interro instance.
+        that this is a response to a question and send it to the Interro 
+        instance.
 
         """
         user = self.users.by_nick(source)
-        if user and user.uid in self.signups and 'convo' in self.signups[user.uid]:
+        if (user and user.uid in self.signups 
+            and 'convo' in self.signups[user.uid]):
             self.signups[user.uid]['convo'].answer(msg)
 
     def approve(self, user, operator):
@@ -114,11 +118,14 @@ class WigglyPlug(plugbase.Plug):
             else:
                 # Known signup, add approval
                 self.signups[user.uid]['approvals'].add(operator.uid)
-            if (len(self.signups[user.uid]['approvals']) >= self.approval_threshold and 
-                'convo' not in self.signups[user.uid]):
+            approval_count = len(self.signups[user.uid]['approvals'])
+            if (approval_count >= self.approval_threshold 
+                and 'convo' not in self.signups[user.uid]):
                 convo = interro.Interro(
-                    msg_callback=lambda msg: self.core.msg(user.nickname, msg),
-                    complete_callback=lambda results: self.convo_complete(user.uid, results))
+                    msg_callback=lambda msg: \
+                        self.core.msg(user.nickname, msg),
+                    complete_callback=lambda results: \
+                        self.convo_complete(user.uid, results))
                 self.fill_convo(convo)
                 self.signups[user.uid]['convo'] = convo
                 convo.start()
@@ -143,7 +150,8 @@ class WigglyPlug(plugbase.Plug):
                 self.process_results(uid, results)
                 message = '%s has successfully registered an account.'
         except:
-            message = '%s could not register an account due to an error in processing.'
+            message = '%s could not register an account due to an error \
+in processing.'
             raise            
         finally:
             # Whether it worked or not, send feedback to ops
@@ -162,7 +170,8 @@ class WigglyPlug(plugbase.Plug):
 
         """
         try:
-            password = subprocess.check_output(['sh', self.creation_script, results['username']])
+            password = subprocess.check_output(['sh', self.creation_script, 
+                results['username']])
             password = password.strip()
             self.send_mail(results['email'], password)
         except CalledProcessError as e:
@@ -191,9 +200,9 @@ class WigglyPlug(plugbase.Plug):
     # conversation.  Down here because it's big.
     _interro_questions = [
         interro.MessageQ('start',
-            message="Welcome to the Anapnea registration process!  I have \
-a few questions for you that I'd like you to answer honestly.  If there is \
-any problem along the way, please contact staff and hopefully we'll find a \
+            message="Welcome to the Anapnea registration process!  I have a \
+few questions for you that I'd like you to answer honestly.  If there is any \
+problem along the way, please contact staff and hopefully we'll find a \
 solution.",
             default_next='TOS'), 
 
@@ -202,14 +211,14 @@ solution.",
 have some rules.  For example, be considerate of other users and don't use \
 the system for torrenting.  The full Terms of Service can be found at \
 http://anapnea.net/terms.php .",
-            question="Have you read and understood the TOS, and do you \
-agree to them?",
+            question="Have you read and understood the TOS, and do you agree \
+to them?",
             onanswer={True: 'email',
                       False: 'noTOS'}),
 
         interro.MessageQ('noTOS',
-            message="Then this concludes the registration process.  If \
-you are unsure whether your plans conflict with the TOS, contact staff for \
+            message="Then this concludes the registration process.  If you \
+are unsure whether your plans conflict with the TOS, contact staff for \
 clarification."),
 
         interro.TextQ('email',
