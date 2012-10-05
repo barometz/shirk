@@ -12,10 +12,12 @@ from util import Event
 
 import interro
 
+# Static stuff that really doesn't need access to the WigglyPlug instance
+
 def test_username_format(username):
     """Tests whether a username matches the format required by the system.
 
-    On Debian, adduser by default uses "^[a-z][-a-z0-9_]*\$" and this does
+    On Debian, adduser by default uses "^[a-z][-a-z0-9_]*$" and this does
     seem like a sensible format.
 
     """
@@ -39,7 +41,16 @@ def test_username_free(username):
         return False
 
 class WigglyPlug(plugbase.Plug):
-    """Handles user registration for Anapnea."""
+    """Handles user registration for Anapnea.
+
+    Requires these things to be in place:
+    * An smtp server that can send stuff to the outside world.
+    * A file to use as the template for password emails.  In this file, 
+      %PASSWORD% will be replaced with the newly created password.
+    * An sh script that takes a username as its first argument, creates the 
+      user and prints the new password to STDOUT.
+
+    """
     name = 'Wiggly'
     hooks = [Event.private]
     commands = ['approve']
@@ -61,7 +72,11 @@ class WigglyPlug(plugbase.Plug):
         
     @plugbase.level(10)
     def cmd_approve(self, source, target, argv):
-        """!approve handler."""
+        """!approve handler.
+
+        Takes one argument: the nickname of the user who is to be approved.
+
+        """
         if len(argv) < 2:
             return
         user = self.users.by_nick(argv[1])
@@ -74,6 +89,12 @@ class WigglyPlug(plugbase.Plug):
                 del self.signups[uid]
 
     def handle_private(self, source, msg, action):
+        """Private message handler.
+
+        If the source of the message has been approved for signup, assume 
+        that this is a response to a question and send it to the Interro instance.
+
+        """
         user = self.users.by_nick(source)
         if user and user.uid in self.signups and 'convo' in self.signups[user.uid]:
             self.signups[user.uid]['convo'].answer(msg)
@@ -145,6 +166,7 @@ class WigglyPlug(plugbase.Plug):
             password = password.strip()
             self.send_mail(results['email'], password)
         except CalledProcessError as e:
+            # Occurs when the return code was non-zero
             self.log.error('User creation script failed.')
             self.log.error(e.cmd)
             self.log.error(e.output)
@@ -165,6 +187,8 @@ class WigglyPlug(plugbase.Plug):
         s.sendmail(self.mail_from, address, msg.as_string())
         s.quit()
     
+    # The collection of Interro questions that is added to each new 
+    # conversation.  Down here because it's big.
     _interro_questions = [
         interro.MessageQ('start',
             message="Welcome to the Anapnea registration process!  I have \
