@@ -1,0 +1,13 @@
+Hi there!
+
+This email address was just used to register an account at Anapnea.net.  The
+password for the new account is:
+
+%PASSWORD%
+
+You can sign in immediately, after which you will be prompted to change your
+password.
+
+Welcome to Anapnea and enjoy your stay!
+
+-- Anapnea Staff

@@ -1,8 +1,11 @@
 # Copyright (c) 2012 Dominic van Berkel
 # See LICENSE for details.
 
+import email.message
 import pwd
 import re
+import smtplib
+import subprocess
 
 from plugs import plugbase
 from util import Event
@@ -15,6 +18,9 @@ class WigglyPlug(plugbase.Plug):
     hooks = [Event.private]
     commands = ['approve']
     approval_threshold = 2
+    creation_script = '/home/dominic/coding/shirk/plugs/Wiggly/newuser.sh'
+    template_path = '/home/dominic/coding/shirk/plugs/Wiggly/mailtemplate.txt'
+    mail_from = 'wiggly@baudvine.net'
     _interro_questions = []
 
     def load(self):
@@ -25,6 +31,8 @@ class WigglyPlug(plugbase.Plug):
         # }
         self.signups = {}
         self.create_questions()
+        with open(self.template_path) as f:
+            self.mail_template = f.read()
         
     @plugbase.level(10)
     def cmd_approve(self, source, target, argv):
@@ -42,7 +50,7 @@ class WigglyPlug(plugbase.Plug):
 
     def handle_private(self, source, msg, action):
         user = self.users.by_nick(source)
-        if user and user.uid in self.signups:
+        if user and user.uid in self.signups and 'convo' in self.signups[user.uid]:
             self.signups[user.uid]['convo'].answer(msg)
 
     def approve(self, user, operator):
@@ -60,13 +68,19 @@ class WigglyPlug(plugbase.Plug):
             else:
                 # Known signup, add approval
                 self.signups[user.uid]['approvals'].add(operator.uid)
-            if len(self.signups[user.uid]['approvals']) >= self.approval_threshold:
+            if (len(self.signups[user.uid]['approvals']) >= self.approval_threshold and 
+                'convo' not in self.signups[user.uid]):
                 convo = interro.Interro(
                     msg_callback=lambda msg: self.core.msg(user.nickname, msg),
                     complete_callback=lambda results: self.convo_complete(user.uid, results))
                 self.fill_convo(convo)
                 self.signups[user.uid]['convo'] = convo
                 convo.start()
+
+    def fill_convo(self, convo):
+        """Populates the Interro instance with _interro_questions"""
+        for q in self._interro_questions:
+            convo.add(q)
 
     def convo_complete(self, uid, results):
         """Conversation wrap-up.
@@ -76,24 +90,24 @@ class WigglyPlug(plugbase.Plug):
         of the signup.
 
         """
-        if not results['TOS']:
-            message = '%s did not agree to the TOS.'
-        elif self.process_results(uid, results):
-            message = '%s has successfully registered an account.'
-        else:
+        try:
+            if not results['TOS']:
+                message = '%s did not agree to the TOS.'
+            else:
+                self.process_results(uid, results)
+                message = '%s has successfully registered an account.'
+        except:
             message = '%s could not register an account due to an error in processing.'
-        for op_uid in self.signups[uid]['approvals']:
-            operator = self.users.by_uid(op_uid)
-            if operator:
-                # is the operator still online?
-                user = self.users.by_uid(uid).nickname
-                self.core.notice(operator.nickname, message % (user,))
-        del self.signups[uid]
-
-    def fill_convo(self, convo):
-        """Populates the Interro instance with _interro_questions"""
-        for q in self._interro_questions:
-            convo.add(q)
+            raise            
+        finally:
+            # Whether it worked or not, send feedback to ops
+            for op_uid in self.signups[uid]['approvals']:
+                operator = self.users.by_uid(op_uid)
+                if operator:
+                    # is the operator still online?
+                    user = self.users.by_uid(uid).nickname
+                    self.core.notice(operator.nickname, message % (user,))
+            del self.signups[uid]
 
     def process_results(self, uid, results):
         """Adds the user to the system etc.
@@ -101,8 +115,30 @@ class WigglyPlug(plugbase.Plug):
         Returns True when everything appears to have worked, False otherwise.
 
         """
-        self.core.msg('##shirk', str(results))
-        return True
+        try:
+            password = subprocess.check_output(['sh', self.creation_script, results['username']])
+            password = password.strip()
+            self.send_mail(results['email'], password)
+        except CalledProcessError as e:
+            self.log.error('User creation script failed.')
+            self.log.error(e.cmd)
+            self.log.error(e.output)
+            raise
+        except SMTPConnectError:
+            self.log.error('Failed to connect to mailserver.')
+            raise
+
+    def send_mail(self, address, password):
+        """Sends a newly signed up user an email with their password."""
+        body = self.mail_template.replace('%PASSWORD%', password)
+        msg = email.message.Message()
+        msg['Subject'] = 'Your new Anapnea account'
+        msg['To'] = address
+        msg['From'] = self.mail_from
+        msg.set_payload(body)
+        s = smtplib.SMTP('localhost')
+        s.sendmail(self.mail_from, address, msg.as_string())
+        s.quit()
 
     def test_username_format(self, username):
         """Tests whether a username matches the format required by the system.
