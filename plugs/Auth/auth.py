@@ -6,6 +6,7 @@ from util import Event
 
 import json
 
+
 class AuthPlug(plugbase.Plug):
     """Auth plug.  Handles auth stuffs."""
     name = 'Auth'
@@ -26,8 +27,8 @@ class AuthPlug(plugbase.Plug):
         user.power = 0
         if user.hostmask in self.config['hosts']:
             user.power = self.config['hosts'][user.hostmask]
-            self.log.info('Power of %s set to %d based on hostmask: %s' % \
-                (user.nickname, user.power, user.hostmask))
+            self.log.info('Power of %s set to %d based on hostmask: %s'
+                % (user.nickname, user.power, user.hostmask))
         if user.nickname in self.config['known']:
             self.core.sendLine('WHOIS %s' % (user.nickname,))
 
@@ -38,5 +39,5 @@ class AuthPlug(plugbase.Plug):
         if account in self.config['users']:
             user = self.users.by_nick(nickname)
             user.power = self.config['users'][account]
-            self.log.info('Power of %s set to %d based on account: %s' % \
-                (nickname, user.power, account))
+            self.log.info('Power of %s set to %d based on account: %s'
+                % (nickname, user.power, account))

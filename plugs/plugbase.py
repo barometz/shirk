@@ -6,8 +6,9 @@
 import logging
 from functools import wraps
 
+
 def level(level):
-    """Decorator for !commands.  
+    """Decorator for !commands.
 
     When applied to a function cmd_foo(self, nickname, *args) this will check
     whether the user known by nickname has a power of at least level.
@@ -22,19 +23,20 @@ def level(level):
         return newf
     return decorator
 
+
 class Plug(object):
     """Base class for Shirk plugs.
 
     Specifies some utility functions and glue between core and plug.
 
     """
-    name = "Plug" 
+    name = "Plug"
     commands = []
     hooks = []
     rawhooks = []
 
     def __init__(self, core):
-        self.log = logging.getLogger('plug-'+self.name)
+        self.log = logging.getLogger('plug-' + self.name)
         self.log.info("Loading")
         self.core = core
         self.users = core.users
@@ -94,18 +96,18 @@ doesn\'t override it.')
         nothing appropriate is found.  Feel free to override.
 
         """
-        callback = getattr(self, 'cmd_'+argv[0], self.unhandled_cmd)
+        callback = getattr(self, 'cmd_' + argv[0], self.unhandled_cmd)
         callback(source, target, argv)
 
     def handle_private(self, source, msg, action):
         """Called when the bot receives a private message"""
         self.log.warning('handle_private has been triggered, but the plug \
-doesn\'t override it.')  
+doesn\'t override it.')
 
     def handle_userjoined(self, nickname, channel):
         """Called when a user has joined a channel."""
         self.log.warning('handle_userjoined has been triggered, but the plug \
-doesn\'t override it.')  
+doesn\'t override it.')
 
     def handle_raw(self, command, prefix, params):
         """Called for the raw hooks.
@@ -114,7 +116,7 @@ doesn\'t override it.')
         nothing appropriate is found.  Feel free to override.
 
         """
-        callback = getattr(self, 'raw_'+command, self.unhandled_raw)
+        callback = getattr(self, 'raw_' + command, self.unhandled_raw)
         callback(command, prefix, params)
 
     def unhandled_cmd(self, source, target, argv):
@@ -124,8 +126,8 @@ doesn\'t override it.')
         without specifying the appropriate cmd_<command> function.
 
         """
-        self.log.warning('Received unhandled command: %s > %s %r' % \
-            (source, target, argv))
+        self.log.warning('Received unhandled command: %s > %s %r'
+            % (source, target, argv))
 
     def unhandled_raw(self, command, prefix, params):
         """Called for unhandled raw stuff.
@@ -134,5 +136,5 @@ doesn\'t override it.')
         without specifying the appropriate raw_<command> function.
 
         """
-        self.log.warning('Received unhandled raw: %s %s %r' % \
-            (prefix, command, params))
+        self.log.warning('Received unhandled raw: %s %s %r'
+            % (prefix, command, params))
