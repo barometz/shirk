@@ -13,51 +13,82 @@ class WigglyPlug(plugbase.Plug):
     """Handles user registration for Anapnea."""
     name = 'Wiggly'
     hooks = [Event.private]
-    commands = ['register']
+    commands = ['approve']
+    approval_threshold = 2
     _interro_questions = []
 
     def load(self):
-        self.conversations = {}
+        # self.signups is a dictionary of 
+        # {user.uid: {'approvals': [list of approving operators],
+        #             'convo': Interro instance
+        #             }
+        # }
+        self.signups = {}
         self.create_questions()
         
     @plugbase.level(10)
-    def cmd_register(self, source, target, argv):
+    def cmd_approve(self, source, target, argv):
+        """!approve handler."""
         if len(argv) < 2:
             return
         user = self.users.by_nick(argv[1])
-        if user and user.uid not in self.conversations:
-            convo = interro.Interro(
-                msg_callback=lambda msg: self.core.msg(user.nickname, msg),
-                complete_callback=lambda results: self.convo_complete(user.uid, results))
-            operator = self.users.by_nick(source).uid
-            convo.operator = user.uid
-            self.fill_convo(convo)
-            self.conversations[user.uid] = convo
-            convo.start()
+        operator = self.users.by_nick(source)
+        self.approve(user, operator)
         # Clean up dead convos
-        convos = self.conversations.keys()
+        convos = self.signups.keys()
         for uid in convos:
             if not self.users.by_uid(uid):
-                del self.conversations[uid]
+                del self.signups[uid]
 
     def handle_private(self, source, msg, action):
         user = self.users.by_nick(source)
-        if user and user.uid in self.conversations:
-            self.conversations[user.uid].answer(msg)
+        if user and user.uid in self.signups:
+            self.signups[user.uid]['convo'].answer(msg)
+
+    def approve(self, user, operator):
+        """An operator has approved of a given user. If the amount of
+        approvals has passed the set threshold, proceed with registration.
+
+        user: the User object for whoever is being approved of.
+        operator: the User object for the approving operator.
+
+        """
+        if user:
+            if user.uid not in self.signups:
+                # New signup, create new record 
+                self.signups[user.uid] = {'approvals': set([operator.uid])}
+            else:
+                # Known signup, add approval
+                self.signups[user.uid]['approvals'].add(operator.uid)
+            if len(self.signups[user.uid]['approvals']) >= self.approval_threshold:
+                convo = interro.Interro(
+                    msg_callback=lambda msg: self.core.msg(user.nickname, msg),
+                    complete_callback=lambda results: self.convo_complete(user.uid, results))
+                self.fill_convo(convo)
+                self.signups[user.uid]['convo'] = convo
+                convo.start()
 
     def convo_complete(self, uid, results):
+        """Conversation wrap-up.
+
+        If the TOS has been accepted, this throws the rest of the results at
+        process_results and gives some feedback to the operators who approved 
+        of the signup.
+
+        """
         if not results['TOS']:
             message = '%s did not agree to the TOS.'
         elif self.process_results(uid, results):
             message = '%s has successfully registered an account.'
         else:
             message = '%s could not register an account due to an error in processing.'
-        operator = self.users.by_uid(self.conversations[uid].operator)
-        if operator:
-            # is the operator still online?
-            user = self.users.by_uid(uid).nickname
-            self.core.notice(operator.nickname, message % (user,))
-        del self.conversations[uid]
+        for op_uid in self.signups[uid]['approvals']:
+            operator = self.users.by_uid(op_uid)
+            if operator:
+                # is the operator still online?
+                user = self.users.by_uid(uid).nickname
+                self.core.notice(operator.nickname, message % (user,))
+        del self.signups[uid]
 
     def fill_convo(self, convo):
         """Populates the Interro instance with _interro_questions"""
