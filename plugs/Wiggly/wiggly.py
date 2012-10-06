@@ -12,6 +12,7 @@ from util import Event
 
 import interro
 
+
 # Static stuff that really doesn't need access to the WigglyPlug instance
 
 def test_username_format(username):
@@ -27,18 +28,25 @@ def test_username_format(username):
         return False
 
 def test_username_free(username):
-    """Tests whether a username is not used on the system.
-
-    Currently does not check whether a username is on any restriction
-    list.
-
-    """
+    """Tests whether a username is not in use and not restricted."""
     try:
         pwd.getpwnam(username)
     except KeyError:
-        return True
+        # username wasn't in pwd, now check restricted names
+        try:
+            restricted = '/etc/restricted'
+            with open(restricted, 'r') as f:
+                if username in [s.strip() for s in f.readlines()]:
+                    return False
+                else:
+                    return True
+        except IOError:
+            # restricted file doesn't exist
+            return True
     else:
+        # username was in pwd, so no-can-do.
         return False
+
 
 class WigglyPlug(plugbase.Plug):
     """Handles user registration for Anapnea.
@@ -240,7 +248,7 @@ password after registration and if you ever need it to be reset.",
 digits, dashes and underscores, and start with a letter.",
             question="What is your desired username?",
             validation=[(test_username_format, 'Invalid format'),
-                (test_username_free, 'That username is already in use.')],
+                (test_username_free, 'That username is not available.')],
             confirm=True,
             default_next='final'),
 
