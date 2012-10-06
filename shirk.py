@@ -46,7 +46,10 @@ class Shirk(irc.IRCClient):
                       Event.private:    set(),  # | callbacks
                       Event.userjoined: set()}  # |
         for plugname in self.config['plugs']:
-            self.load_plug(plugname)
+            try:
+                self.load_plug(plugname)
+            except ImportError:
+                self.log.exception('Failed to load plug %s.', plugname)
 
     def load_plug(self, plugname):
         """Load the plug identified by plugname.
