@@ -62,4 +62,5 @@ class CorePlug(plugbase.Plug):
                 self.respond(source, target, 'Loaded %s.'
                     % (plugname,))
             finally:
-                del self.core
+                if plugname == 'Core':
+                    del self.core
