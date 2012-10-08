@@ -61,7 +61,8 @@ class Shirk(irc.IRCClient):
         """
         module = importlib.import_module('plugs.' + plugname)
         reload(module)
-        plug = module.Plug(self)
+        plugconf = self.config['plug-conf'].get(plugname, {})
+        plug = module.Plug(self, config=plugconf)
         self.plugs[plugname] = plug
         plug.hook_events()
 
@@ -449,7 +450,9 @@ if __name__ == '__main__':
         # failure.
         'reconn_delay': 1,
         # Maximum reconnection retries
-        'reconn_tries': 8
+        'reconn_tries': 8,
+        # Plug-specific conf, should never be filled here.
+        'plug-conf': {}
     }
     config.update(json.load(open('conf.json')))
     
