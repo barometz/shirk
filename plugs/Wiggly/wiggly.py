@@ -175,7 +175,8 @@ in processing.'
     def process_results(self, uid, results):
         """Adds the user to the system etc.
 
-        Returns True when everything appears to have worked, False otherwise.
+        Catches some errors for logging purposes, but (re-)raises all so
+        callers can give feedback to the user.
 
         """
         try:
@@ -183,14 +184,12 @@ in processing.'
                 results['username']])
             password = password.strip()
             self.send_mail(results['email'], password)
-        except CalledProcessError as e:
+        except subprocess.CalledProcessError as e:
             # Occurs when the return code was non-zero
-            self.log.error('User creation script failed.')
-            self.log.error(e.cmd)
-            self.log.error(e.output)
+            self.log.exception('User creation script failed.')
             raise
-        except SMTPConnectError:
-            self.log.error('Failed to connect to mailserver.')
+        except smtplib.SMTPException:
+            self.log.exception('Failed to send email.')
             raise
 
     def record_signup(self, username, email):
