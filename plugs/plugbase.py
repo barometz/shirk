@@ -35,12 +35,17 @@ class Plug(object):
     hooks = []
     rawhooks = []
 
-    def __init__(self, core):
+    def __init__(self, core, config={}):
         self.log = core.log.getChild(self.name)
         self.log.info("Loading")
         self.core = core
         self.users = core.users
+        self.load_config(config)
         self.load()
+
+    def load_config(self, config):
+        for k, v in config.iteritems():
+            setattr(self, k, v)
 
     def load(self):
         pass
