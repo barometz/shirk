@@ -66,6 +66,7 @@ class WigglyPlug(plugbase.Plug):
     commands = ['approve']
     # Wiggly-specific options
     approval_threshold = 2
+    # Environment
     creation_script = '/home/dominic/coding/shirk/plugs/Wiggly/newuser.sh'
     template_path = '/home/dominic/coding/shirk/plugs/Wiggly/mailtemplate.txt'
     signup_log = '/home/dominic/coding/shirk/plugs/Wiggly/signups.log'
@@ -132,9 +133,9 @@ class WigglyPlug(plugbase.Plug):
             if (approval_count >= self.approval_threshold 
                 and 'convo' not in self.signups[user.uid]):
                 convo = interro.Interro(
-                    msg_callback=lambda msg: \
+                    msg_callback=lambda msg:
                         self.core.msg(user.nickname, msg),
-                    complete_callback=lambda results: \
+                    complete_callback=lambda results:
                         self.convo_complete(user.uid, results))
                 self.fill_convo(convo)
                 self.signups[user.uid]['convo'] = convo
