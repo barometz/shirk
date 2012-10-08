@@ -3,7 +3,7 @@
 
 """Plugin base for Shirk."""
 
-import logging
+import json
 from functools import wraps
 
 
@@ -35,17 +35,28 @@ class Plug(object):
     hooks = []
     rawhooks = []
 
-    def __init__(self, core, config={}):
+    def __init__(self, core):
         self.log = core.log.getChild(self.name)
         self.log.info("Loading")
         self.core = core
         self.users = core.users
-        self.load_config(config)
+        self.load_config()
         self.load()
 
-    def load_config(self, config):
-        for k, v in config.iteritems():
-            setattr(self, k, v)
+    def load_config(self):
+        """Load configuration from conf.json in the plug's directory.
+
+        Tries to load plugs/{self.name}/conf.json and adds all key/value pairs
+        in there as attributes to the plug instance.
+
+        """
+        try:
+            config = json.load(open('plugs/%s/conf.json' % (self.name,)))
+        except IOError:
+            pass
+        else:
+            for k, v in config.iteritems():
+                setattr(self, k, v)
 
     def load(self):
         pass

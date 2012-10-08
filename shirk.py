@@ -61,8 +61,7 @@ class Shirk(irc.IRCClient):
         """
         module = importlib.import_module('plugs.' + plugname)
         reload(module)
-        plugconf = self.config['plug-conf'].get(plugname, {})
-        plug = module.Plug(self, config=plugconf)
+        plug = module.Plug(self)
         self.plugs[plugname] = plug
         plug.hook_events()
 
