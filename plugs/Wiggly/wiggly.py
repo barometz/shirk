@@ -66,12 +66,6 @@ class WigglyPlug(plugbase.Plug):
     commands = ['approve']
     # Wiggly-specific options
     approval_threshold = 2
-    # Environment
-    creation_script = '/home/dominic/coding/shirk/plugs/Wiggly/newuser.sh'
-    template_path = '/home/dominic/coding/shirk/plugs/Wiggly/mailtemplate.txt'
-    signup_log = '/home/dominic/coding/shirk/plugs/Wiggly/signups.log'
-    mail_from = 'wiggly@baudvine.net'
-    smtphost = 'localhost'
 
     def load(self):
         # self.signups is a dictionary of 
