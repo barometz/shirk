@@ -449,9 +449,7 @@ if __name__ == '__main__':
         # failure.
         'reconn_delay': 1,
         # Maximum reconnection retries
-        'reconn_tries': 8,
-        # Plug-specific conf, should never be filled here.
-        'plug-conf': {}
+        'reconn_tries': 8
     }
     config.update(json.load(open('conf.json')))
     
