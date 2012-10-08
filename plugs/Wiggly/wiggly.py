@@ -1,6 +1,7 @@
 # Copyright (c) 2012 Dominic van Berkel
 # See LICENSE for details.
 
+import datetime
 import email.message
 import pwd
 import re
@@ -67,6 +68,7 @@ class WigglyPlug(plugbase.Plug):
     approval_threshold = 2
     creation_script = '/home/dominic/coding/shirk/plugs/Wiggly/newuser.sh'
     template_path = '/home/dominic/coding/shirk/plugs/Wiggly/mailtemplate.txt'
+    signup_log = '/home/dominic/coding/shirk/plugs/Wiggly/signups.log'
     mail_from = 'wiggly@baudvine.net'
     smtphost = 'localhost'
 
@@ -157,9 +159,13 @@ class WigglyPlug(plugbase.Plug):
             else:
                 self.process_results(uid, results)
                 message = '%s has successfully registered an account.'
-        except:
+                self.log.info('Registered new account "%s"' 
+                    % (results['username'],))
+                self.record_signup(results['username'], results['email'])
+        except Exception as e:
             message = '%s could not register an account due to an error \
 in processing.'
+            self.log.exception('Error while processing registration.')
             raise            
         finally:
             # Whether it worked or not, send feedback to ops
@@ -191,6 +197,13 @@ in processing.'
         except SMTPConnectError:
             self.log.error('Failed to connect to mailserver.')
             raise
+
+    def record_signup(self, username, email):
+        """Creates a new entry in the signup log"""
+        logdate = datetime.date.today().strftime('%Y-%m-%d')
+        record = '%s %-16s %s\n' % (logdate, username, email)
+        with open(self.signup_log, 'a') as f:
+            f.write(record)
 
     def send_mail(self, address, password):
         """Sends a newly signed up user an email with their password."""
