@@ -54,9 +54,9 @@ class WigglyPlug(plugbase.Plug):
 
     Requires these things to be in place:
     * An smtp server that can send stuff to the outside world.
-    * A file to use as the template for password emails.  In this file, 
+    * A file to use as the template for password emails.  In this file,
       %PASSWORD% will be replaced with the newly created password.
-    * An sh script that takes a username as its first argument, creates the 
+    * An sh script that takes a username as its first argument, creates the
       user and prints the new password to STDOUT.
 
     """
@@ -68,7 +68,7 @@ class WigglyPlug(plugbase.Plug):
     approval_threshold = 2
 
     def load(self):
-        # self.signups is a dictionary of 
+        # self.signups is a dictionary of
         # {user.uid: {'approvals': [list of approving operators],
         #             'convo': Interro instance
         #             }
@@ -76,7 +76,7 @@ class WigglyPlug(plugbase.Plug):
         self.signups = {}
         with open(self.template_path) as f:
             self.mail_template = f.read()
-        
+
     @plugbase.level(10)
     def cmd_approve(self, source, target, argv):
         """!approve handler.
@@ -98,13 +98,13 @@ class WigglyPlug(plugbase.Plug):
     def handle_private(self, source, msg, action):
         """Private message handler.
 
-        If the source of the message has been approved for signup, assume 
-        that this is a response to a question and send it to the Interro 
+        If the source of the message has been approved for signup, assume
+        that this is a response to a question and send it to the Interro
         instance.
 
         """
         user = self.users.by_nick(source)
-        if (user and user.uid in self.signups 
+        if (user and user.uid in self.signups
             and 'convo' in self.signups[user.uid]):
             self.signups[user.uid]['convo'].answer(msg)
 
@@ -118,13 +118,13 @@ class WigglyPlug(plugbase.Plug):
         """
         if user:
             if user.uid not in self.signups:
-                # New signup, create new record 
+                # New signup, create new record
                 self.signups[user.uid] = {'approvals': set([operator.uid])}
             else:
                 # Known signup, add approval
                 self.signups[user.uid]['approvals'].add(operator.uid)
             approval_count = len(self.signups[user.uid]['approvals'])
-            if (approval_count >= self.approval_threshold 
+            if (approval_count >= self.approval_threshold
                 and 'convo' not in self.signups[user.uid]):
                 convo = interro.Interro(
                     msg_callback=lambda msg:
@@ -144,7 +144,7 @@ class WigglyPlug(plugbase.Plug):
         """Conversation wrap-up.
 
         If the TOS has been accepted, this throws the rest of the results at
-        process_results and gives some feedback to the operators who approved 
+        process_results and gives some feedback to the operators who approved
         of the signup.
 
         """
@@ -154,14 +154,14 @@ class WigglyPlug(plugbase.Plug):
             else:
                 self.process_results(uid, results)
                 message = '%s has successfully registered an account.'
-                self.log.info('Registered new account "%s"' 
+                self.log.info('Registered new account "%s"'
                     % (results['username'],))
                 self.record_signup(results['username'], results['email'])
         except Exception as e:
             message = '%s could not register an account due to an error \
 in processing.'
             self.log.exception('Error while processing registration.')
-            raise            
+            raise
         finally:
             # Whether it worked or not, send feedback to ops
             for op_uid in self.signups[uid]['approvals']:
@@ -179,7 +179,7 @@ in processing.'
 
         """
         try:
-            password = subprocess.check_output(['sh', self.creation_script, 
+            password = subprocess.check_output(['sh', self.creation_script,
                 results['username']])
             password = password.strip()
             self.send_mail(results['email'], password)
@@ -211,8 +211,8 @@ in processing.'
         s = smtplib.SMTP('localhost')
         s.sendmail(self.mail_from, address, msg.as_string())
         s.quit()
-    
-    # The collection of Interro questions that is added to each new 
+
+    # The collection of Interro questions that is added to each new
     # conversation.  Down here because it's big.
     _interro_questions = [
         interro.MessageQ('start',
@@ -220,7 +220,7 @@ in processing.'
 few questions for you that I'd like you to answer honestly.  If there is any \
 problem along the way, please contact staff and hopefully we'll find a \
 solution.",
-            default_next='TOS'), 
+            default_next='TOS'),
 
         interro.YesNoQ('TOS',
             message="While Anapnea tries to be as open as possible, we do \
