@@ -227,7 +227,7 @@ class Shirk(irc.IRCClient):
         self.event_userjoined(params[5], params[1])
 
     def lineReceived(self, line):
-        line = irc.lowDequote(line)
+        line = irc.lowDequote(line).decode(self.config['charset'], 'replace')
         try:
             prefix, command, params = irc.parsemsg(line)
             if command in irc.numeric_to_symbolic:
@@ -449,7 +449,9 @@ if __name__ == '__main__':
         # failure.
         'reconn_delay': 1,
         # Maximum reconnection retries
-        'reconn_tries': 8
+        'reconn_tries': 8,
+        # charset used to decode messages
+        'charset': 'utf-8'
     }
     config.update(json.load(open('conf.json')))
     
