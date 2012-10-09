@@ -13,6 +13,11 @@ class AuthPlug(plugbase.Plug):
     hooks = [Event.userjoined]
     rawhooks = ['330']
 
+    def load(self):
+        """Force reloading the userlist in case the plug is reloaded"""
+        for channel in self.core.config['channels']:
+            self.core.sendLine('WHO %s' % (channel,))
+
     def handle_userjoined(self, nickname, channel):
         """A user has joined a channel, so let's give them perms.
 
@@ -26,8 +31,9 @@ class AuthPlug(plugbase.Plug):
             user.power = self.hosts_auth[user.hostmask]
             self.log.info('Power of %s set to %d based on hostmask: %s'
                 % (user.nickname, user.power, user.hostmask))
-        if user.nickname in self.known_nicks:
-            self.core.sendLine('WHOIS %s' % (user.nickname,))
+        for nick in self.known_nicks:
+            if user.nickname.lower().startswith(nick):
+                self.core.sendLine('WHOIS %s' % (user.nickname,))
 
     def raw_330(self, command, prefix, params):
         """RPL code for Freenode's "logged in as" message on whois."""
