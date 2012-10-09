@@ -78,7 +78,7 @@ class Shirk(irc.IRCClient):
             callbacks.discard(plug)
         for cmd, callbacks in self.hooks[Event.raw].iteritems():
             callbacks.discard(plug)
-        for ev in [Event.addressed, Event.private, Event.chanmsg]:
+        for ev in [Event.addressed, Event.private, Event.chanmsg, Event.userjoined]:
             self.hooks[ev].discard(plug)
         del self.plugs[plugname]
 
