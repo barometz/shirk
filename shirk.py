@@ -33,7 +33,7 @@ class Shirk(irc.IRCClient):
 
     """
     versionName = "Shirk"
-    versionNum = "0.0"
+    versionNum = "0.5"
     sourceURL = "https://github.com/barometz/shirk"
 
     def load_plugs(self):
