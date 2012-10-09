@@ -30,17 +30,17 @@ class CorePlug(plugbase.Plug):
         response = ', '.join(self.core.plugs)
         self.respond(source, target, response)
 
-    @plugbase.level(10)
+    @plugbase.level(12)
     def cmd_quit(self, source, target, argv):
         """Disconnect and close."""
         self.core.shutdown('Requested by ' + source)
 
-    @plugbase.level(10)
+    @plugbase.level(12)
     def cmd_raw(self, source, target, argv):
         """Send a raw message to the server."""
         self.core.sendLine(' '.join(argv[1:]))
 
-    @plugbase.level(10)
+    @plugbase.level(12)
     def cmd_reload(self, source, target, argv):
         """Reload specified modules."""
         for plugname in argv[1:]:
