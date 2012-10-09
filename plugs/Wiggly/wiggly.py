@@ -180,7 +180,7 @@ in processing.'
 
         """
         try:
-            password = subprocess.check_output(['sh', self.creation_script,
+            password = subprocess.check_output(['sudo', self.creation_script,
                 results['username']])
             password = password.strip()
             self.send_mail(results['email'], password)
