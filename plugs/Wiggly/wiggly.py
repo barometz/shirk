@@ -20,10 +20,10 @@ def test_username_format(username):
     """Tests whether a username matches the format required by the system.
 
     On Debian, adduser by default uses "^[a-z][-a-z0-9_]*$" and this does
-    seem like a sensible format.
+    seem like a sensible format.  Length is restricted to 3 to 16 inclusive.
 
     """
-    if re.match("^[a-z][-a-z0-9_]*$", username):
+    if re.match("^[a-z][a-z0-9]{2,15}$", username):
         return True
     else:
         return False
@@ -249,10 +249,8 @@ password after registration and if you ever need it to be reset.",
             default_next='username'),
 
         interro.TextQ('username',
-            # Going by the default restrictions for Debian's adduser,
-            # NAME_REGEX="^[a-z][-a-z0-9_]*$"
-            message="For your username, please use only lower-case a-z, \
-digits, dashes and underscores, and start with a letter.",
+            message="For your username, please use only lower-case a-z \
+and digits, and start with a letter.",
             question="What is your desired username?",
             validation=[(test_username_format, 'Invalid format'),
                 (test_username_free, 'That username is not available.')],
