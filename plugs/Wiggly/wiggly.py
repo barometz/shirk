@@ -106,7 +106,7 @@ class WigglyPlug(plugbase.Plug):
             if not self.users.by_uid(uid):
                 del self.signups[uid]
 
-    @plugbase.level(12)
+    @plugbase.level(10)
     def cmd_reject(self, source, target, argv):
         """Reject a user.
 
