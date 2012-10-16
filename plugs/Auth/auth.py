@@ -10,22 +10,17 @@ import json
 class AuthPlug(plugbase.Plug):
     """Auth plug.  Handles auth stuffs."""
     name = 'Auth'
-    hooks = [Event.userjoined]
+    hooks = [Event.usercreated]
     rawhooks = ['330']
 
-    def load(self):
+    def load(self, startingup=True):
         """Force reloading the userlist in case the plug is reloaded"""
-        for channel in self.core.config['channels']:
-            self.core.sendLine('WHO %s' % (channel,))
+        if not startingup:
+            for nick, user in self.users.users_by_nick.iteritems():
+                self.handle_usercreated(user)
 
-    def handle_userjoined(self, nickname, channel):
-        """A user has joined a channel, so let's give them perms.
-
-        Todo: make it so that this behaviour is only triggered once, not for
-        every channel a user is in.  A userintroduced event?
-
-        """
-        user = self.users.by_nick(nickname)
+    def handle_usercreated(self, user):
+        """A user has joined a channel, so let's give them perms."""
         user.power = 0
         if user.hostmask in self.hosts_auth:
             user.power = self.hosts_auth[user.hostmask]

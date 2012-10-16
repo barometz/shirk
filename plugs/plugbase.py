@@ -35,13 +35,23 @@ class Plug(object):
     hooks = []
     rawhooks = []
 
-    def __init__(self, core):
+    def __init__(self, core, startingup=True):
+        """Create a new Plug instance.  
+
+        - core: Reference to the central Shirk instance
+        - startingup: Indicates whether this is the initial loading phase
+          or not - if not, it's a manually triggered load or reload.
+
+        Plugs generally don't need to override this - use the Plug.load method
+        instead.
+
+        """
         self.log = core.log.getChild(self.name)
         self.log.info("Loading")
         self.core = core
         self.users = core.users
         self.load_config()
-        self.load()
+        self.load(startingup)
 
     def load_config(self):
         """Load configuration from conf.json in the plug's directory.
@@ -58,7 +68,7 @@ class Plug(object):
             for k, v in config.iteritems():
                 setattr(self, k, v)
 
-    def load(self):
+    def load(self, startingup=True):
         pass
 
     def hook_events(self):
@@ -124,6 +134,16 @@ doesn\'t override it.')
         """Called when a user has joined a channel."""
         self.log.warning('handle_userjoined has been triggered, but the plug \
 doesn\'t override it.')
+
+    def handle_usercreated(self, user):
+        """Called when a new user is added to the Users instance."""
+        self.log.warning('handle_usercreated has been triggered, but the \
+plug doesn\'t override it.')
+
+    def handle_userremoved(self, user):
+        """Called when a user is removed from the Users instance."""
+        self.log.warning('handle_userremoved has been triggered, but the \
+plug doesn\'t override it.')
 
     def handle_raw(self, command, prefix, params):
         """Called for the raw hooks.
