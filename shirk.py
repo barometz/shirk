@@ -35,16 +35,18 @@ class Shirk(irc.IRCClient):
     versionName = "Shirk"
     versionNum = "0.5"
     sourceURL = "https://github.com/barometz/shirk"
+    # List of events that don't need any other information in the hook,
+    # unlike .command and .raw which need other params specified.
+    _simple_events = [Event.addressed, Event.chanmsg, Event.private,
+        Event.userjoined, Event.usercreated, Event.userremoved]
 
     def load_plugs(self):
         """Load the plugs listed in config."""
         self.plugs = {}
-        self.hooks = {Event.raw:        {},     # dictionary of
-                      Event.command:    {},     # 'command': set([plug, plug])
-                      Event.addressed:  set(),  # |
-                      Event.chanmsg:    set(),  # | these are all sets of
-                      Event.private:    set(),  # | callbacks
-                      Event.userjoined: set()}  # |
+        self.hooks = {Event.raw:        {},  # dictionary of
+                      Event.command:    {}}  # 'command': set([plug, plug])
+        for ev in self._simple_events:
+            self.hooks[ev] = set()
         for plugname in self.config['plugs']:
             try:
                 self.load_plug(plugname)
@@ -78,7 +80,7 @@ class Shirk(irc.IRCClient):
             callbacks.discard(plug)
         for cmd, callbacks in self.hooks[Event.raw].iteritems():
             callbacks.discard(plug)
-        for ev in [Event.addressed, Event.private, Event.chanmsg, Event.userjoined]:
+        for ev in self._simple_events:
             self.hooks[ev].discard(plug)
         del self.plugs[plugname]
 
@@ -117,7 +119,7 @@ class Shirk(irc.IRCClient):
         self.log.info('Connected to server')
         # Connected successfully, so reset the reconn delay
         self.factory.resetDelay()
-        self.users = users.Users()
+        self.users = users.Users(self)
         self.nickname = self.config['nickname']
         self.password = self.config['password']
         self.cmd_prefix = self.config['cmd_prefix']
@@ -317,6 +319,27 @@ class Shirk(irc.IRCClient):
         """
         for plug in self.hooks[Event.userjoined]:
             plug.handle_userjoined(nickname, channel)
+
+    def event_usercreated(self, user):
+        """A new user has been introduced to user management.
+
+        This is triggered from the Users instance whenever it creates a new
+        User instance.
+
+        """
+        for plug in self.hooks[Event.usercreated]:
+            plug.handle_usercreated(user)
+
+    def event_userremoved(self, user):
+        """A user has left the building.
+
+        This is triggered from the Users instance whenever it removes a user
+        from its list, generally because the user no longer shares a channel
+        with the bot.
+
+        """
+        for plug in self.hooks[Event.userremoved]:
+            plug.handle_userremoved(user)
 
     ## Things modules will want to use
 

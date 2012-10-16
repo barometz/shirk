@@ -33,8 +33,9 @@ class Users(object):
     but instead at most a reference to the collective users dict.
 
     """
-    def __init__(self):
+    def __init__(self, core):
         self.log = logging.getLogger('Users')
+        self.core = core
         self.users_by_nick = {}
         self.users_by_uid = {}
 
@@ -53,6 +54,7 @@ class Users(object):
             user = User(nickname, username, hostmask, channel)
             self.users_by_nick[nickname] = user
             self.users_by_uid[user.uid] = user
+            self.core.event_usercreated(user)
             msg = 'Added user %s (uid=%d) to the global userlist, channel %s'
             self.log.debug(msg % (nickname, user.uid, channel))
 
@@ -93,4 +95,5 @@ class Users(object):
         user.alive = False
         del self.users_by_nick[user.nickname]
         del self.users_by_uid[user.uid]
+        self.core.event_userremoved(user)
         self.log.debug('Removed user %s (uid=%d)' % (user.nickname, user.uid))

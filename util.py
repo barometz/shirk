@@ -11,3 +11,5 @@ class Event:
     private = 'event_private'
     raw = 'event_raw'
     userjoined = 'event_userjoined'
+    usercreated = 'event_usercreated'
+    userremoved = 'event_userremoved'

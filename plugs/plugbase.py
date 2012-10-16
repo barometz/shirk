@@ -125,6 +125,16 @@ doesn\'t override it.')
         self.log.warning('handle_userjoined has been triggered, but the plug \
 doesn\'t override it.')
 
+    def handle_usercreated(self, user):
+        """Called when a new user is added to the Users instance."""
+        self.log.warning('handle_usercreated has been triggered, but the \
+plug doesn\'t override it.')
+
+    def handle_userremoved(self, user):
+        """Called when a user is removed from the Users instance."""
+        self.log.warning('handle_userremoved has been triggered, but the \
+plug doesn\'t override it.')
+
     def handle_raw(self, command, prefix, params):
         """Called for the raw hooks.
 
