@@ -1,0 +1,11 @@
+{
+	"known_nicks": ["list", "of", "lowercase", "nickname", "prefixes"],
+	"users_auth": {
+		"nickserv": 15,
+		"Account": 10,
+		"names": 10
+	},
+	"hosts_auth": {
+		"trusted.host.masks": 10
+	}
+}
