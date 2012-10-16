@@ -63,7 +63,7 @@ class WigglyPlug(plugbase.Plug):
     # Plug settings
     name = 'Wiggly'
     hooks = [Event.private]
-    commands = ['approve']
+    commands = ['approve', 'reject', 'waiting']
     # Wiggly-specific options
     approval_threshold = 2
 
@@ -86,14 +86,53 @@ class WigglyPlug(plugbase.Plug):
         """
         if len(argv) < 2:
             return
-        user = self.users.by_nick(argv[1])
+        targetnick = argv[1]
+        user = self.users.by_nick(targetnick)
         operator = self.users.by_nick(source)
-        self.approve(user, operator)
+        remaining = self.approve(user, operator)
+        if remaining == 0:
+            self.respond(source, target,
+                "%s has been approved for registration." % (targetnick,))
+        elif remaining > 0:
+            self.respond(source, target,
+                "Approval added.  %s needs %d more." %
+                (targetnick, remaining))
+        else:
+            self.respond(source, target, 
+                "No such user: %s" % (targetnick))
         # Clean up dead convos
         convos = self.signups.keys()
         for uid in convos:
             if not self.users.by_uid(uid):
                 del self.signups[uid]
+
+    @plugbase.level(12)
+    def cmd_reject(self, source, target, argv):
+        """Reject a user.
+
+        Empties the user's signup approval list and interrupts the signup
+        process if it had already begun.
+        """
+        if len(argv) < 2:
+            return
+        user = self.users.by_nick(argv[1])
+        if user and user.uid in self.signups:
+            del self.signups[uid]
+            self.respond(source, target, '%s no longer has any approvals.' %
+                (user.nickname,))
+
+    @plugbase.level(10)
+    def cmd_waiting(self, source, target, argv):
+        """List all users waiting for additional approvals."""
+        responses = []
+        for uid, data in self.signups.iteritems():
+            user = self.users.by_uid(uid)
+            if user and 'convo' not in data:
+                approvals = data['approvals']
+                block = "%s (%s)" \
+                    % (user.nickname, ', '.join(approvals))
+                responses.append(block)
+        self.respond(source, target, ', '.join(responses))
 
     def handle_private(self, source, msg, action):
         """Private message handler.
@@ -115,6 +154,10 @@ class WigglyPlug(plugbase.Plug):
         user: the User object for whoever is being approved of.
         operator: the User object for the approving operator.
 
+        Returns the amount of approvals the user still needs before going
+        through registration, or -1 when the user can't be approved,
+        generally because they don't exist.
+
         """
         if user:
             if user.uid not in self.signups:
@@ -134,6 +177,9 @@ class WigglyPlug(plugbase.Plug):
                 self.fill_convo(convo)
                 self.signups[user.uid]['convo'] = convo
                 convo.start()
+            return self.approval_threshold - approval_count
+        else:
+            return -1
 
     def fill_convo(self, convo):
         """Populates the Interro instance with _interro_questions"""
