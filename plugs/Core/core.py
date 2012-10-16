@@ -15,7 +15,7 @@ class CorePlug(plugbase.Plug):
 
     """
     name = 'Core'
-    commands = ['plugs', 'commands', 'raw', 'quit', 'reload']
+    commands = ['plugs', 'commands', 'raw', 'quit', 'reload', 'hooks']
 
     def cmd_commands(self, source, target, argv):
         """List registered commands."""
@@ -64,3 +64,13 @@ class CorePlug(plugbase.Plug):
             finally:
                 if plugname == 'Core':
                     del self.core
+
+    @plugbase.level(15)
+    def cmd_hooks(self, source, target, argv):
+        """List all current hooks on the terminal.
+
+        Exists pretty much only for debugging purposes.
+
+        """
+        for ev, hooks in self.core.hooks.iteritems():
+            print ev, hooks
