@@ -1,7 +1,0 @@
-{
-	"creation_script": "/home/dominic/coding/shirk/plugs/Wiggly/newuser.sh",
-	"template_path": "/home/dominic/coding/shirk/plugs/Wiggly/mailtemplate.txt",
-	"signup_log": "/home/dominic/coding/shirk/plugs/Wiggly/signups.log",
-	"mail_from": "wiggly@baudvine.net",
-	"smtphost": "localhost"
-}
