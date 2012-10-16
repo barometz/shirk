@@ -60,11 +60,14 @@ class Plug(object):
         in there as attributes to the plug instance.
 
         """
+        configfile = 'plugconf/%s.json' % (self.name,)
         try:
-            config = json.load(open('plugs/%s/conf.json' % (self.name,)))
+            config = json.load(open(configfile))
         except IOError:
+            self.log.info('No config file found at %s.' % (configfile,))
             pass
         else:
+            self.log.info('Loading config file %s.' % (configfile,))
             for k, v in config.iteritems():
                 setattr(self, k, v)
 

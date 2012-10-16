@@ -1,0 +1,4 @@
+Plug-specific config files are loaded from here.  If a plug provides an
+example config (say, Auth-example.json) you can copy it to
+plugconf/{plugname}.json (say, Auth.json).  All of its keys are added as
+attributes to the Plug instance.
