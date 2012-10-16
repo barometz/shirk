@@ -117,7 +117,7 @@ class WigglyPlug(plugbase.Plug):
             return
         user = self.users.by_nick(argv[1])
         if user and user.uid in self.signups:
-            del self.signups[uid]
+            del self.signups[user.uid]
             self.respond(source, target, '%s no longer has any approvals.' %
                 (user.nickname,))
 
@@ -128,7 +128,11 @@ class WigglyPlug(plugbase.Plug):
         for uid, data in self.signups.iteritems():
             user = self.users.by_uid(uid)
             if user and 'convo' not in data:
-                approvals = data['approvals']
+                approvals = []
+                for approval in data['approvals']:
+                    appr_user = self.users.by_uid(approval)
+                    if appr_user:
+                        approvals.append(appr_user.nickname)
                 block = "%s (%s)" \
                     % (user.nickname, ', '.join(approvals))
                 responses.append(block)
