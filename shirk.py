@@ -63,7 +63,7 @@ class Shirk(irc.IRCClient):
         """
         module = importlib.import_module('plugs.' + plugname)
         reload(module)
-        plug = module.Plug(self)
+        plug = module.Plug(self, self.startingup)
         self.plugs[plugname] = plug
         plug.hook_events()
 
@@ -125,6 +125,7 @@ class Shirk(irc.IRCClient):
         self.cmd_prefix = self.config['cmd_prefix']
         self.realname = self.config['realname']
         self.username = self.config['username']
+        self.startingup = True
         irc.IRCClient.connectionMade(self)
 
     def connectionLost(self, reason):
@@ -155,6 +156,7 @@ class Shirk(irc.IRCClient):
         for chan in self.config['channels']:
             self.join(chan)
         self.lineRate = 0.3
+        self.startingup = False
 
     def joined(self, channel):
         """Called when I finish joining a channel."""

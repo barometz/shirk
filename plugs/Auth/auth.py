@@ -13,10 +13,11 @@ class AuthPlug(plugbase.Plug):
     hooks = [Event.usercreated]
     rawhooks = ['330']
 
-    def load(self):
+    def load(self, startingup=True):
         """Force reloading the userlist in case the plug is reloaded"""
-        for channel in self.core.config['channels']:
-            self.core.sendLine('WHO %s' % (channel,))
+        if not startingup:
+            for nick, user in self.users.users_by_nick.iteritems():
+                self.handle_usercreated(user)
 
     def handle_usercreated(self, user):
         """A user has joined a channel, so let's give them perms."""
