@@ -67,7 +67,7 @@ class WigglyPlug(plugbase.Plug):
     # Wiggly-specific options
     approval_threshold = 2
 
-    def load(self):
+    def load(self, startingup=True):
         # self.signups is a dictionary of
         # {user.uid: {'approvals': [list of approving operators],
         #             'convo': Interro instance
