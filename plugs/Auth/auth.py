@@ -11,7 +11,7 @@ class AuthPlug(plugbase.Plug):
     """Auth plug.  Handles auth stuffs."""
     name = 'Auth'
     hooks = [Event.usercreated]
-    rawhooks = ['330', '474']
+    rawhooks = ['330']
 
     def load(self, startingup=True):
         """Force reloading the userlist in case the plug is reloaded"""
@@ -40,7 +40,6 @@ class AuthPlug(plugbase.Plug):
             self.log.info('Power of %s set to %d based on account: %s'
                 % (nickname, user.power, account))
     
-    def raw_474(self, command, prefix, params):
-        self.log.info('Nick is %s banned from %s' % (params[0], params[1]))
+    
         
     
