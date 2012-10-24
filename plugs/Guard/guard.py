@@ -33,21 +33,27 @@ class GuardPlug(plugbase.Plug):
             if self.core.hooks[Event.command][cmd]])
         self.respond(source, target, response)
     
-    def raw_PRIVMSG(self, command, prefix, params):
+    def raw_PRIVMSG(self, cmd, prefix, params):
         """
             Receives raw commands, strips first character and see if it is in the knockout commands.
             The current channel is the first argument of params and the command is the second.
             The user who issued it is extractable from the prefix
         """
-        command = params[1][1:]
-        if command in self.knockout_cmd:
-            nickname=prefix.split('!', 1)[0];
-            channel=command = params[0]
-            self.knockout(nickname, channel)
-
+        command=params[1]
+        #check if it is a known command
+        try:
+            if command.startswith(self.core.cmd_prefix) and len(command) > 1:
+                command = command[1:]
+                self.log.debug("! command received: %s" % (command))
+                if command in self.knockout_cmd:
+                    nickname=prefix.split('!', 1)[0];
+                    channel= params[0]
+                    self.knockout(nickname, channel)
+        except AttributeError:
+            self.log.debug("Attribute Error %s" % (command))
+        
         self.log.debug("RAW command received %s, %s, %s" % (command, prefix, params))
-
-
+        
 
 
     def knockout(self, source, target):
@@ -60,7 +66,8 @@ class GuardPlug(plugbase.Plug):
 
     def handle_modechanged(self, source, channel, set, modes, argv):
         """
-            Watch the mode changes to see if the bot needs something to do
+        TODO: Bot reops when already op.    
+        Watch the mode changes to see if the bot needs something to do
             op status: initiate knockout procedure for nicknames in knockout_list.
             ban status: see if the bot has called for the ban and if it has call a delayed unban
         """
