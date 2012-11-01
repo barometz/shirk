@@ -3,14 +3,18 @@
 
 from plugs import plugbase
 from util import Event
+from datetime import datetime, timedelta
+
+
 
 import random
+import json
+
 
 class GuardPlug(plugbase.Plug):
-    """Guard plug for Shirk.
-        
+    """
+        Guard plug for Shirk.
         Guards the bot for getting kicked, banned and watches the users for unwanted commands.
-        
     """
     name = 'Guard'
     commands = ['rejoin', 'knockout' ]
@@ -21,12 +25,17 @@ class GuardPlug(plugbase.Plug):
     recover_list = {}
     knockout_msg = [ "Try talking to persons instead of bots." ]
 
+    recover_list.update(json.load(open('recover.log')))
+
     knockout_time = 20
     rejoin_timeout = 60
     rejoin_tries = 10
     rejoin_tried = {}
 
+    recovering = False
     operator = False
+
+    
    
     def cmd_commands(self, source, target, argv):
         """List registered commands."""
@@ -44,64 +53,57 @@ class GuardPlug(plugbase.Plug):
         """
         command=params[1]
         try:
-            if command.startswith(self.core.cmd_prefix) and len(command) > 1:
-                command = command[1:]
-                self.log.debug("! command received: %s" % (command))
-                #check if it is a known command
-                if command in self.knockout_cmd:
+            if command.startswith(self.core.cmd_prefix) and len(command) > 1:   
+                command = command[1:]  
+                if command in self.knockout_cmd: 
                     nickname=prefix.split('!', 1)[0]
                     user = self.users.by_nick(nickname)
                     channel= params[0]
-                    if user.power > 0:
+                    if user.power > 0: # Don't knockout auth users
                         action = 'stares at', nickname
                         self.core.ctcpMakeQuery(channel, [('ACTION', action)])
-                    else:
+                    else: # Initiate the knockout procedure.
                         self.initKnockout(nickname, channel, None, None)
-        except AttributeError:
+        except AttributeError: 
             self.log.debug("Attribute Error %s" % (command))
-        
-        self.log.debug("RAW command received %s, %s, %s" % (command, prefix, params))
 
     def initKnockout(self, source, target, timeout, message):
-        """Log the nick name and get op status. The modechange will initiate the knockout procedure"""
-        response = message
-        if response is None:
-            response = "Please wait, processing your request."
-        self.respond(source, target, "%s: %s" % (source, response))
+        """ Log the nick name and get op status. The modechange will initiate the knockout procedure """
+        response = message 
+        if response is None: 
+            response = "Please wait, processing your request." 
+        self.respond(source, target, "%s: %s" % (source, response)) 
         if source not in self.knockout_list:
-            params = [ target, timeout, message ]
+            if timeout is None:
+                timeout = self.knockout_time
+            unbantime = datetime.strftime(datetime.now() + timedelta(seconds = timeout), '%Y-%m-%dT%H:%M:%S')
+            params = [ target, timeout, message, unbantime ]
             self.knockout_list[source] = params
-        if self.operator == False: 
-            self.core.sendLine('chanserv op %s' % (target))
+        if self.operator == False:  
+            self.core.sendLine('chanserv op %s' % (target)) # The modechange event will process the procedure further 
         else:
-            self.knockout(None, None)
-        self.log.debug("Banned command issued: %s" % (self.knockout_list))
+            self.knockout(None, None) # Already operator, hammer time.
 
     def handle_modechanged(self, source, channel, set, modes, argv):
         """
-        Watch the mode changes to see if the bot needs something to do
+            Watch the mode changes to see if the bot needs something to do
             op status: initiate knockout procedure for nicknames in knockout_list.
             ban status: see if the bot has called for the ban and if it has call a delayed unban
+            TODO: if the bot get op status and has nothing to do it doesn't deop itself.
         """
-        self.log.debug("Mode changed: %s, %s, %s, %s, %s" % (source, channel, set, modes, argv))
         nick=argv[0]
-        if (nick == self.core.nickname) & (modes=='o'):
+        if (nick == self.core.nickname) & (modes=='o'): # Check if there a change in operator status
             self.operator = set
-            if (self.operator):
-                if len(self.knockout_list) == 0:
-                    """The knockout list is empty, no need to be op 
-                        TODO: Check the recover list!
-                    """
-                    self.core.sendLine('chanserv deop %s' % (channel))
-                else:
-                    """Ban everyone in the knockout list"""
+            if (self.operator): 
+                if len(self.knockout_list) > 0:
                     self.knockout(None, None)
-        elif (modes=='b') and set:
-            if (self.operator):
-                banner = source.split('!', 1)[0]
-                if banner == self.core.nickname:
-                    """The bot has initiated a ban on a user, so kick the user and then issue an unban for the given knockout timeout"""
-                    nick = nick.split('!', 1)[0];
+                elif not self.recovering:
+                        self.recover()
+        elif (modes=='b'): # Check if there ban issued.
+            banner = source.split('!', 1)[0]
+            if (self.operator) & (banner == self.core.nickname):
+                nick = nick.split('!', 1)[0];
+                if set:
                     params = self.recover_list[nick]
                     timeout = params[1]
                     response = params[2]
@@ -110,18 +112,55 @@ class GuardPlug(plugbase.Plug):
                     if response is None:
                         response=self.knockout_msg[random.randint(0, len(self.knockout_msg)-1)]
                     self.core.kick(channel, nick, response)
-                    params=[ 'unban', channel, nick ]
-                    self.core.delayEvent(Event.delayevent, timeout, params)
-                    self.log.debug("%s banned: %s" % (banner, channel))
+                    if (timeout <= self.knockout_time):
+                        params=[ 'unban', channel, nick ]
+                        self.core.delayEvent(Event.delayevent, timeout, params)
+                    elif len(self.knockout_list)==0:
+                        self.core.sendLine('chanserv deop %s' % (channel))
+                        if not self.recovering:
+                            self.recover()
+                else:
+                    del self.recover_list[nick]
+                    open('recover.log', "w").write(json.dumps(self.recover_list))
+                    if not self.recovering:
+                        self.recover()
     
+    def recover(self):
+        """ Process the recover list, check if there are still users waiting for an unban """
+        recover_list = self.recover_list.copy()
+        channel = None
+        if len(recover_list) > 0:
+            for user in recover_list:
+                params = recover_list[user]
+                timeout = params[1]
+                if timeout is None: 
+                    timeout=self.knockout_time
+                time = datetime.strptime(params[3], '%Y-%m-%dT%H:%M:%S')
+                if time < datetime.now():
+                    channel = params[0]
+                    if not self.operator:
+                        self.core.sendLine('chanserv op %s' % (channel))
+                        return
+                    else:
+                        self.recovering = True
+                        self.handle_invokedevent([ 'unban', channel, user ])
+        self.core.delayEvent(Event.delayevent, 60, [ 'recover' ] )           
+        self.recovering = False             
+        if self.operator and channel is not None: 
+            self.core.sendLine('chanserv deop %s' % (channel))
+
     def knockout(self, timeout, message):
-        """Do the actual knockout. Move the knocked out users to the recover list. """
+        """
+            Do the actual knockout. Move the knocked out users to the recover list. 
+        """
         for nick in self.knockout_list:
             params = self.knockout_list[nick]
             channel = params[0]
             self.log.info("Knockout issued (%s)" % (nick))
             self.core.sendLine("mode %s +b %s" % (channel, nick))
             self.recover_list[nick] = params
+
+            open('recover.log', "w").write(json.dumps(self.recover_list) + '\n')
         self.knockout_list = {}
 
     @plugbase.level(10)
@@ -146,32 +185,28 @@ class GuardPlug(plugbase.Plug):
                 timeout = self.knockout_time
             if len(message) == 0 :
                 message=self.knockout_msg[random.randint(0, len(self.knockout_msg)-1)]
-            self.log.debug("CMD_KNOCKOUT: %s, %s, %s, %s, %s" % (argv, nick, target, timeout, message))
             self.initKnockout(nick, target, timeout, message)
         else:
             self.respond(target, source, "%s: Usage: !knockout nickname <timeout [minutes]> <message>" % (source))
 
     def handle_invokedevent(self, argv):
         """
-            The callback for the delayed event. This could be any event. The first argument of argv defines the action to be taken.
+            The callback for any delayed event. The first argument of argv defines the action to be taken.
             Other arguments in argv are parameters.
         """
-        self.log.debug("delayed event (%s)" % (argv))
         command=argv[0]
         if command=='unban':
-            """The timeout has expired. time to unban the user"""
             channel=argv[1]
             nick=argv[2]
-            self.log.debug("Unban issued (%s)" % (nick))
             self.core.sendLine("mode %s -b %s" % (channel, nick))
-            del self.recover_list[nick];
-            if len(self.recover_list)==0:
-                """The knockout list is empty, no need to be op """
-                self.core.sendLine('chanserv deop %s' % (channel))
+            if not self.recovering:    
+                self.recover()
         elif command=='rejoin':
-            """Try to join a channel """
             channel = argv[1]
             self.core.join(channel)
+        elif command=='recover':
+            self.recover()
+
     
     def handle_kickedfrom(self, channel, kicker, message):
         """the bot got kicked from a channel, so lets try to rejon."""
@@ -202,7 +237,8 @@ class GuardPlug(plugbase.Plug):
         
     @plugbase.level(12)
     def cmd_rejoin(self, source, target, argv):
-        """Rejoin channels."""
+        """Rejoin all known channels."""
         for chan in self.core.config['channels']:
             self.core.join(chan)
+    
     
