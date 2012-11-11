@@ -38,7 +38,7 @@ class Shirk(irc.IRCClient):
     # List of events that don't need any other information in the hook,
     # unlike .command and .raw which need other params specified.
     _simple_events = [Event.addressed, Event.chanmsg, Event.private,
-        Event.userjoined, Event.usercreated, Event.userremoved, Event.modechanged, Event.delayevent, Event.invokedevent]
+        Event.userjoined, Event.usercreated, Event.userremoved]
 
     def load_plugs(self):
         """Load the plugs listed in config."""
@@ -162,15 +162,6 @@ class Shirk(irc.IRCClient):
         """Called when I finish joining a channel."""
         self.sendLine('WHO %s' % (channel,))
 
-    def delayEvent(self, event, delay, argv):
-        """Delay an event"""
-        reactor.callLater(delay, self.invokeEvent, argv)
-
-    def invokeEvent(self, argv):
-        """invoke a delayed event"""
-        for plug in self.hooks[Event.invokedevent]:
-            plug.handle_invokedevent(argv)
-
     # Things other users do
 
     def userJoined(self, user, channel):
@@ -252,17 +243,14 @@ class Shirk(irc.IRCClient):
                 self.event_raw(command, prefix, params)
         except irc.IRCBadMessage:
             self.badMessage(line, *sys.exc_info())
-    
-    def modeChanged(self, nickname, channel, set, modes, argv):
-        """Mode change received"""
-        for plug in self.hooks[Event.modechanged]:
-            plug.handle_modechanged(nickname, channel, set, modes, argv)
 
-
-    def kickedFrom(self, channel, kicker, message):
-        """kicked from channel"""
-        self.log.info('Kicked from %s by %s' % (channel, kicker))
-        self.join(channel)
+    def irc_KICK(self, prefix, params):
+        """Received a KICK command"""
+        """check for own nickname"""
+        nick = params[1]
+        if nick == self.nickname:
+            self.log.info('I got kicked!')
+            self.join(params[0])
 
     ## Shirk's events that modules can register callbacks for
 
@@ -414,7 +402,6 @@ class Shirk(irc.IRCClient):
             self.hooks[Event.raw][cmd] = set()
         self.hooks[Event.raw][cmd].add(plug)
 
-        
 
 class ShirkFactory(protocol.ReconnectingClientFactory):
     """A factory for Shirk.
@@ -432,7 +419,6 @@ class ShirkFactory(protocol.ReconnectingClientFactory):
         self.initialDelay = config['reconn_delay']
         self.delay = self.initialDelay
         self.maxRetries = config['reconn_tries']
-        
 
     def buildProtocol(self, addr):
         p = Shirk()
@@ -498,9 +484,7 @@ if __name__ == '__main__':
         # Maximum reconnection retries
         'reconn_tries': 8,
         # charset used to decode messages
-        'charset': 'utf-8',
-        # time for Knockout
-        'knockout_time': 20
+        'charset': 'utf-8'
     }
     config.update(json.load(open('conf.json')))
     
@@ -521,7 +505,6 @@ if __name__ == '__main__':
         datefmt='%Y-%m-%d/%H:%M:%S'))
     logger.addHandler(consolelog)
     logger.addHandler(filelog)
-
 
     # Create and connect the client factory
     f = ShirkFactory(config, logger)
