@@ -9,6 +9,7 @@
 import importlib
 import json
 import logging
+import sys
 
 # Twisted imports
 from twisted.words.protocols import irc
@@ -413,7 +414,6 @@ class Shirk(irc.IRCClient):
         if cmd not in self.hooks[Event.raw]:
             self.hooks[Event.raw][cmd] = set()
         self.hooks[Event.raw][cmd].add(plug)
-
         
 
 class ShirkFactory(protocol.ReconnectingClientFactory):
@@ -525,7 +525,7 @@ if __name__ == '__main__':
         fmt='%(asctime)s %(levelname)-8s %(name)s: %(message)s',
         datefmt='%Y-%m-%d/%H:%M:%S'))
     
-    #logger.addHandler(consolelog)
+    logger.addHandler(consolelog)
     logger.addHandler(filelog)
 
 
