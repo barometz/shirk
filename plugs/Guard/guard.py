@@ -24,7 +24,7 @@ class GuardPlug(plugbase.Plug):
     knockout_time = 20
     rejoin_timeout = 60
     rejoin_tries = 10
-    rejoin_tried = {}
+    rejoin_tried = 0
 
     operator = False
    
@@ -64,10 +64,9 @@ class GuardPlug(plugbase.Plug):
 
     def initKnockout(self, source, target, timeout, message):
         """Log the nick name and get op status. The modechange will initiate the knockout procedure"""
-        response = message
-        if response is None:
-            response = "Please wait, processing your request."
-        self.respond(source, target, "%s: %s" % (source, response))
+        if message is None:
+            message= "Please wait, processing your request."
+        self.respond(source, target, "%s: %s" % (source, message))
         if source not in self.knockout_list:
             params = [ target, timeout, message ]
             self.knockout_list[source] = params
@@ -85,18 +84,17 @@ class GuardPlug(plugbase.Plug):
         """
         self.log.debug("Mode changed: %s, %s, %s, %s, %s" % (source, channel, set, modes, argv))
         nick=argv[0]
-        if (nick == self.core.nickname) & (modes=='o'):
+        if (nick == self.core.nickname) & (modes=='o') & set:
+            if len(self.knockout_list) == 0:
+                """The knockout list is empty, no need to be op 
+                    TODO: Check the recover list!
+                """
+                self.core.sendLine('chanserv deop %s' % (channel))
+            else:
+                """Ban everyone in the knockout list"""
+                self.knockout(None, None)
+        elif (modes=='b'):
             self.operator = set
-            if (self.operator):
-                if len(self.knockout_list) == 0:
-                    """The knockout list is empty, no need to be op 
-                        TODO: Check the recover list!
-                    """
-                    self.core.sendLine('chanserv deop %s' % (channel))
-                else:
-                    """Ban everyone in the knockout list"""
-                    self.knockout(None, None)
-        elif (modes=='b') and set:
             if (self.operator):
                 banner = source.split('!', 1)[0]
                 if banner == self.core.nickname:
@@ -187,18 +185,17 @@ class GuardPlug(plugbase.Plug):
         nickname = params[0]
         channel = params[1]
         self.log.info('%s is banned from %s' % (nickname, channel))
-        if self.rejoin_tried[channel] < self.rejoin_tries:
-            self.rejoin_tried[channel]=self.rejoin_tried[channel] + 1
-            self.log.info('Trying %d of %d rejoins in %s seconds' % (self.rejoin_tried[channel], self.rejoin_tries, self.rejoin_timeout))
+        if self.rejoin_tried < self.rejoin_tries:
+            self.rejoin_tried=self.rejoin_tried + 1
+            self.log.info('Trying %d of %d rejoins in %s seconds' % (self.rejoin_tried, self.rejoin_tries, self.rejoin_timeout))
             params=[ 'rejoin', channel ]
             self.core.delayEvent(Event.delayevent, self.rejoin_timeout, params)
 
     def handle_userjoined(self, nickname, channel):
         """If the bot is joined to channel, reset rejoin tries"""
         if nickname == self.core.nickname:
-            self.log.info("%s joined to channel %s" % (nickname, channel))
-            self.rejoin_tried[channel] = 0
-
+            self.log.debug("%s joined to channel %s" % (nickname, channel))
+            self.rejoin_tried = 0
         
     @plugbase.level(12)
     def cmd_rejoin(self, source, target, argv):
