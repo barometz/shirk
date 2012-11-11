@@ -15,19 +15,18 @@ class CorePlug(plugbase.Plug):
 
     """
     name = 'Core'
-    commands = ['plugs', 'commands', 'raw', 'quit', 'reload', 'hooks' ]
-    #hooks = [Event.modechanged, Event.invokedevent] 
-    #knockout = {}
+    commands = ['plugs', 'commands', 'raw', 'quit', 'reload', 'hooks', 'rejoin', 'register' ]
+    hooks = [Event.modechanged, Event.invokedevent] 
+    knockout = {}
 
-    
     def cmd_commands(self, source, target, argv):
-        #""List registered commands.#""
+        """List registered commands."""
         # Only list those commands that have any plugs
         response = ', '.join([cmd for cmd
             in self.core.hooks[Event.command].keys()
             if self.core.hooks[Event.command][cmd]])
         self.respond(source, target, response)
-    """
+    
     def handle_modechanged(self, source, channel, set, modes, argv):
         self.log.debug("Mode changed at core: %s, %s, %s, %s, %s" % (source, channel, set, modes, argv))
         nick=argv[0]
@@ -61,15 +60,14 @@ class CorePlug(plugbase.Plug):
                 self.core.sendLine('chanserv deop %s' % (channel))
 
     def cmd_register(self, source, target, argv):
-        #""Log the nick name, opup, knockout, wait for unban, deop#""
+        """Log the nick name, opup, knockout, wait for unban, deop"""
         self.respond(source, target, "%s: Please wait, processing your request." % (source))
         if source not in self.knockout:
             self.knockout[source] = target
         self.core.sendLine('chanserv op %s' % (target))
         self.log.debug("Register command issued: %s" % (self.knockout))
 
-    """
-
+    
     def cmd_plugs(self, source, target, argv):
         """List the loaded plugs"""
         response = ', '.join(self.core.plugs)
@@ -109,6 +107,12 @@ class CorePlug(plugbase.Plug):
             finally:
                 if plugname == 'Core':
                     del self.core
+
+    @plugbase.level(12)
+    def cmd_rejoin(self, source, target, argv):
+        """Rejoin channels."""
+        for chan in self.core.config['channels']:
+            self.core.join(chan)
 
     @plugbase.level(15)
     def cmd_hooks(self, source, target, argv):

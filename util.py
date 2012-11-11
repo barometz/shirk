@@ -16,4 +16,3 @@ class Event:
     modechanged = 'event_modechanged'
     delayevent = 'event_delay'
     invokedevent = 'event_invokedevent'
-    kickedfrom = 'event_kickedfrom'

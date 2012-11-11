@@ -38,7 +38,7 @@ class Shirk(irc.IRCClient):
     # List of events that don't need any other information in the hook,
     # unlike .command and .raw which need other params specified.
     _simple_events = [Event.addressed, Event.chanmsg, Event.private,
-        Event.userjoined, Event.usercreated, Event.userremoved, Event.modechanged, Event.delayevent, Event.invokedevent, Event.kickedfrom]
+        Event.userjoined, Event.usercreated, Event.userremoved, Event.modechanged, Event.delayevent, Event.invokedevent]
 
     def load_plugs(self):
         """Load the plugs listed in config."""
@@ -258,10 +258,11 @@ class Shirk(irc.IRCClient):
         for plug in self.hooks[Event.modechanged]:
             plug.handle_modechanged(nickname, channel, set, modes, argv)
 
+
     def kickedFrom(self, channel, kicker, message):
         """kicked from channel"""
-        for plug in self.hooks[Event.kickedfrom]:
-            plug.handle_kickedfrom(channel, kicker, message)
+        self.log.info('Kicked from %s by %s' % (channel, kicker))
+        self.join(channel)
 
     ## Shirk's events that modules can register callbacks for
 
@@ -497,7 +498,9 @@ if __name__ == '__main__':
         # Maximum reconnection retries
         'reconn_tries': 8,
         # charset used to decode messages
-        'charset': 'utf-8'
+        'charset': 'utf-8',
+        # time for Knockout
+        'knockout_time': 20
     }
     config.update(json.load(open('conf.json')))
     

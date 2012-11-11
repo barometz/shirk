@@ -148,18 +148,6 @@ plug doesn\'t override it.')
         self.log.warning('handle_userremoved has been triggered, but the \
 plug doesn\'t override it.')
 
-    def handle_modechanged(self, nickname, channel, set, modes, argv):
-        self.log.warning('handle_modechanged has been triggered, but the \
-plug doesn\'t override it.')
-
-    def handle_invokedevent(self, argv):
-        self.log.warning('handle_invokedevent has been triggered, but the \
-plug doesn\'t override it.')
-
-    def handle_kickedfrom(self, argv):
-        self.log.warning('handle_kickedfrom has been triggered, but the \
-plug doesn\'t override it.')
-
     def handle_raw(self, command, prefix, params):
         """Called for the raw hooks.
 
