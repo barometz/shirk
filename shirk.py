@@ -244,14 +244,6 @@ class Shirk(irc.IRCClient):
         except irc.IRCBadMessage:
             self.badMessage(line, *sys.exc_info())
 
-    def irc_KICK(self, prefix, params):
-        """Received a KICK command"""
-        """check for own nickname"""
-        nick = params[1]
-        if nick == self.nickname:
-            self.log.info('I got kicked!')
-            self.join(params[0])
-
     ## Shirk's events that modules can register callbacks for
 
     def event_addressed(self, source, target, msg):
