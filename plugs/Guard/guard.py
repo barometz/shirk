@@ -52,10 +52,18 @@ class GuardPlug(plugbase.Plug):
     def cmd_users(self, source, target, argv):
         """ Return the current user count per channel. """
         nicks = 0
+        src = source
+        channel = target
+        if len(argv) > 1: 
+            channel = argv[1]
+            target = source
+            if channel not in self.core.config['channels']:
+                self.respond(target, source, "Unknown channel: %s." % (channel))
+                return
         for nick in self.users.users_by_nick:
             user = self.users.users_by_nick[nick]
-            if target in user.channels: nicks += 1
-        self.respond(target, source, "Counted %d nicks in %s." % (nicks, target))
+            if channel in user.channels: nicks += 1
+        self.respond(target, source, "Counted %d nicks in %s." % (nicks, channel))
 
     @plugbase.level(12)
     def cmd_rejoin(self, source, target, argv):
@@ -129,7 +137,7 @@ class GuardPlug(plugbase.Plug):
                         self.fn_addUser(nickname, channel, None, None)
                         self.fn_ban(channel)
         except AttributeError: 
-            self.log.debug("Attribute Error %s" % (command))
+            self.log.debug("Attribute Error at raw_PRIVMSG %s." % (command))
     
     def raw_NOTICE(self, cmd, prefix, params):
         """ Strips the flags from a message after status request (handle_userjoined) """
@@ -178,14 +186,15 @@ class GuardPlug(plugbase.Plug):
                 self.operator[channel] = set
                 if len(self.knockout_list) > 0: self.fn_ban(channel)
                 elif len(self.recover_list) > 0: self.fn_recover()
+                elif set: self.core.sendLine('chanserv deop %s' % (channel))
         elif modes == 'b':
             banner = source.split('!', 1)[0]
             if (self.operator[channel]) and (banner == self.core.nickname):
-                nick = nick.split('!', 1)[0]
+                username = nick.split('!')[1]
                 if set:
-                    self.fn_kick(nick)
+                    self.fn_kick(username)
                 else:
-                    del self.recover_list[nick]
+                    del self.recover_list[username]
                     open('plugs/Guard/recover.log', "w").write(json.dumps(self.recover_list) +'\n')
                     if (len(self.recover_list) == 0) and (len(self.knockout_list) == 0):
                         self.core.sendLine('chanserv deop %s' % (channel))
@@ -195,76 +204,80 @@ class GuardPlug(plugbase.Plug):
 
     def fn_addUser(self, nickname, channel, timeout, message):
         """ Add a user to the knockout list. """
-        if nickname not in self.knockout_list:
+        user = self.users.users_by_nick[nickname]
+        username = user.username + '@' + user.hostmask
+        if username not in self.knockout_list:
             response = message
             if response is None:
                 response = 'Please wait, processing your request.'
             if timeout is None:
                 timeout = self.knockout_time
             unbantime = datetime.strftime(datetime.now() + timedelta(seconds = timeout), '%Y-%m-%dT%H:%M:%S')
-            params = [ channel, timeout, message, unbantime ] 
-            self.knockout_list[nickname] = params
+            params = [ channel, timeout, message, unbantime, nickname ] 
+            self.knockout_list[username] = params
 
     def fn_ban(self, channel):
         """ Initiate the knockout procedure; ban, kick, timeout, unban. """
         if (channel not in self.flags) or (self.flags[channel].find('o') < 0):
             response = 'would have helped out, but i am not an operator in', channel
             self.core.ctcpMakeQuery(channel, [('ACTION', response)])
-            for nick in self.knockout_list:
-                if self.knockout_lst[nick][0] == channel:
-                    del self.knockout_lst[nick]
+            for username in self.knockout_list:
+                if self.knockout_list[username][0] == channel:
+                    del self.knockout_list[username]
             return
         if channel not in self.operator: self.operator[channel] = False;
         if (len(self.knockout_list) > 0) and (not self.operator[channel]): 
             self.core.sendLine('chanserv op %s' % (channel))
             return
-        for nick in self.knockout_list:
-            params = self.knockout_list[nick]
+        for username in self.knockout_list:
+            params = self.knockout_list[username]
             channel = params[0]
-            self.log.info('Knockout issued (%s) in %s' % (nick, channel))
-            self.core.sendLine('mode %s +b %s' % (channel, nick))
+            nickname = params[4]
+            self.log.info('Knockout issued (%s) in %s' % (nickname, channel))
+            self.core.sendLine('mode %s +b %s' % (channel, username))
     
-    def fn_unban(self, channel, nick):
-        """ Unbans an nick. """
-        self.core.sendLine("mode %s -b %s" % (channel, nick))
+    def fn_unban(self, channel, username):
+        """ Unbans a user. """
+        self.core.sendLine("mode %s -b %s" % (channel, username))
 
-    def fn_kick(self, nick):
+    def fn_kick(self, username):
         """ Does the actual kick after the ban is issued. """
-        if nick in self.knockout_list:
-            params = self.knockout_list[nick]
+        
+        if username in self.knockout_list:
+            params = self.knockout_list[username]
             channel = params[0]
             timeout = params[1]
             response = params[2]
+            nick = params[4]
             if timeout is None:
                 timeout = self.knockout_time
             if response is None:
                 response=self.knockout_msg[random.randint(0, len(self.knockout_msg)-1)]
             self.core.kick(channel, nick, response)
-            self.recover_list[nick] = params
+            self.recover_list[username] = params
             open('plugs/Guard/recover.log', "w").write(json.dumps(self.recover_list) +'\n')
-            del self.knockout_list[nick]
+            del self.knockout_list[username]
 
     def fn_recover(self):
         """ Handles the recovery of banned users. """
-        for nick in self.recover_list:
-            params = self.recover_list[nick]
+        for username in self.recover_list:
+            params = self.recover_list[username]
             timeout = params[1]
             if timeout is None:
                 timeout = self.knockout_time
             time = datetime.strptime(params[3], '%Y-%m-%dT%H:%M:%S')
             if time < datetime.now():
                 channel = params[0]
-                # if channel not in self.operator: self.operator[channel] = False
                 if not self.operator[channel]:
                     self.core.sendLine('chanserv op %s' % (channel))
                     return
-                self.fn_unban(channel, nick)
+                self.fn_unban(channel, username)
         if (len(self.knockout_list) == 0) and (len(self.recover_list) == 0): 
             for channel in self.operator:
                 if self.operator[channel]:    
                     self.core.sendLine('chanserv deop %s' % (channel))
-               
-        
-        self.core.delayEvent(Event.delayevent, 60, [ 'recover' ] )
-            
+        try:
+            self.core.delayEvent(Event.delayevent, 60, [ 'recover' ] )
+        except AttributeError:
+            self.log.debug("Attribute Error at fn_recover.")
     
