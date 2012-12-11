@@ -32,6 +32,9 @@ class GuardPlug(plugbase.Plug):
     knockout_cmd = [ "register" ]
     knockout_msg = [ "Try talking to persons instead of bots." ]
     knockout_list = {}
+
+    help_cmd = [ "help", "helpme" ]
+    help_msg = [ "There are no commands usable by regular users." ] 
     
     recover_list = {}
     recover_list.update(json.load(open('plugs/Guard/recover.log')))
@@ -125,10 +128,10 @@ class GuardPlug(plugbase.Plug):
         try:
             if command.startswith(self.core.cmd_prefix) and len(command) > 1:   
                 command = command[1:]  
+                nickname=prefix.split('!', 1)[0]
+                user = self.users.by_nick(nickname)
+                channel = params[0]
                 if command in self.knockout_cmd: 
-                    nickname=prefix.split('!', 1)[0]
-                    user = self.users.by_nick(nickname)
-                    channel= params[0]
                     if user.power > 0: # Don't knockout auth users
                         action = 'stares at', nickname
                         self.core.ctcpMakeQuery(channel, [('ACTION', action)])
@@ -136,6 +139,9 @@ class GuardPlug(plugbase.Plug):
                         self.respond(channel, nickname, "%s: %s" % (nickname, 'Please wait, processing your request.'))
                         self.fn_addUser(nickname, channel, None, None)
                         self.fn_ban(channel)
+                if command in self.help_cmd:
+                    if user.power == 0:
+                        self.respond(channel, nickname, "%s: %s" % (nickname, self.help_msg[0]))
         except AttributeError: 
             self.log.debug("Attribute Error at raw_PRIVMSG %s." % (command))
     
