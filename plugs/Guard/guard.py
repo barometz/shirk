@@ -219,7 +219,7 @@ class GuardPlug(plugbase.Plug):
         if (channel not in self.flags) or (self.flags[channel].find('o') < 0):
             response = 'would have helped out, but i am not an operator in', channel
             self.core.ctcpMakeQuery(channel, [('ACTION', response)])
-            for username in self.knockout_list:
+            for username in self.knockout_list[:]:
                 if self.knockout_list[username][0] == channel:
                     del self.knockout_list[username]
             return
@@ -227,8 +227,7 @@ class GuardPlug(plugbase.Plug):
         if (len(self.knockout_list) > 0) and (not self.operator[channel]): 
             self.core.sendLine('chanserv op %s' % (channel))
             return
-        for username in self.knockout_list:
-            params = self.knockout_list[username]
+        for username, params in self.knockout_list.iteritems():
             channel = params[0]
             nickname = params[4]
             self.log.info('Knockout issued (%s) in %s' % (nickname, channel))
