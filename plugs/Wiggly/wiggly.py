@@ -63,9 +63,10 @@ class WigglyPlug(plugbase.Plug):
     # Plug settings
     name = 'Wiggly'
     hooks = [Event.private]
-    commands = ['approve', 'reject', 'waiting']
+    commands = ['approve', 'reject', 'waiting', 'close', 'open']
     # Wiggly-specific options
     approval_threshold = 2
+    _closed = None
 
     def load(self, startingup=True):
         # self.signups is a dictionary of
@@ -78,12 +79,35 @@ class WigglyPlug(plugbase.Plug):
             self.mail_template = f.read()
 
     @plugbase.level(10)
+    def cmd_close(self, source, target, argv):
+        """Close registration with an optional reason."""
+        if len(argv) > 2:
+            self._closed = "No reason provided"
+        else:
+            self._closed = ' '.join(argv[1:])
+        self.log.info("%s closed registrations." % (source,))
+        self.respond(source, target, "Closed for registration: %s" % (self._closed,))
+
+    @plugbase.level(10)
+    def cmd_open(self, source, target, argv):
+        """(Re)open registration."""
+        if self._closed is not None:
+            self._closed = None
+            self.log.info("%s opened registrations." % (source,))
+            self.respond(source, target, "Opened for registration.")
+        else:
+            self.respond(source, target, "Already open for registration.")
+
+    @plugbase.level(10)
     def cmd_approve(self, source, target, argv):
         """!approve handler.
 
         Takes one argument: the nickname of the user who is to be approved.
 
         """
+        if self._closed is not None:
+            self.respond(source, target, "Registrations are closed: %s" % (self._closed,))
+            return
         if len(argv) < 2:
             return
         targetnick = argv[1]
