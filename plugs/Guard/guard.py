@@ -89,7 +89,7 @@ class GuardPlug(plugbase.Plug):
             if timeout < 1:
                 timeout = self.knockout_time
             if len(message) == 0 :
-                message=self.knockout_msg[random.randint(0, len(self.knockout_msg)-1)]
+                message=random.choice(self.knockout_msg)
             self.fn_addUser(nickname, channel, timeout, message)
             self.fn_ban(channel)
         else:
