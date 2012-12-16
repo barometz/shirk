@@ -219,12 +219,12 @@ class GuardPlug(plugbase.Plug):
         if (channel not in self.flags) or (self.flags[channel].find('o') < 0):
             response = 'would have helped out, but i am not an operator in', channel
             self.core.ctcpMakeQuery(channel, [('ACTION', response)])
-            for username in self.knockout_list[:]:
-                if self.knockout_list[username][0] == channel:
+            for username, params in dict(self.knockout_list).iteritems():
+                if params[0] == channel:
                     del self.knockout_list[username]
             return
         if channel not in self.operator: self.operator[channel] = False;
-        if (len(self.knockout_list) > 0) and (not self.operator[channel]): 
+        if (len(self.knockout_list) > 0) and (not self.operator[channel]):
             self.core.sendLine('chanserv op %s' % (channel))
             return
         for username, params in self.knockout_list.iteritems():
@@ -232,6 +232,7 @@ class GuardPlug(plugbase.Plug):
             nickname = params[4]
             self.log.info('Knockout issued (%s) in %s' % (nickname, channel))
             self.core.sendLine('mode %s +b %s' % (channel, username))
+
     
     def fn_unban(self, channel, username):
         """ Unbans a user. """
