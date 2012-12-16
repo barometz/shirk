@@ -81,7 +81,7 @@ class WigglyPlug(plugbase.Plug):
     @plugbase.level(10)
     def cmd_close(self, source, target, argv):
         """Close registration with an optional reason."""
-        if len(argv) > 2:
+        if len(argv) < 2:
             self._closed = "No reason provided"
         else:
             self._closed = ' '.join(argv[1:])
