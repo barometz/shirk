@@ -222,15 +222,18 @@ class WigglyPlug(plugbase.Plug):
         of the signup.
 
         """
+        
         try:
             if not results['TOS']:
                 message = '%s did not agree to the TOS.'
             else:
                 self.process_results(uid, results)
+                nickname = self.users.by_uid(uid).nickname
                 message = '%s has successfully registered an account.'
                 self.log.info('Registered new account "%s"'
                     % (results['username'],))
-                self.record_signup(results['username'], results['email'])
+                
+                self.record_signup(results['username'], results['email'], nickname)
         except Exception as e:
             message = '%s could not register an account due to an error \
 in processing.'
@@ -266,10 +269,10 @@ in processing.'
             self.log.exception('Failed to send email.')
             raise
 
-    def record_signup(self, username, email):
+    def record_signup(self, username, email, nickname):
         """Creates a new entry in the signup log"""
         logdate = datetime.date.today().strftime('%Y-%m-%d')
-        record = '%s %-16s %s\n' % (logdate, username, email)
+        record = '%s  user:%-16s  irc:%-16s  %s\n' % (logdate, username, nickname, email)
         with open(self.signup_log, 'a') as f:
             f.write(record)
 
