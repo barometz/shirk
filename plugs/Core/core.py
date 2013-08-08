@@ -15,7 +15,7 @@ class CorePlug(plugbase.Plug):
 
     """
     name = 'Core'
-    commands = ['plugs', 'commands', 'raw', 'quit', 'reload', 'hooks', 'ping']
+    commands = ['plugs', 'commands', 'raw', 'quit', 'restart', 'reload', 'hooks', 'ping']
 
     def cmd_commands(self, source, target, argv):
         """List registered commands."""
@@ -34,6 +34,11 @@ class CorePlug(plugbase.Plug):
     def cmd_quit(self, source, target, argv):
         """Disconnect and close."""
         self.core.shutdown('Requested by ' + source)
+
+    @plugbase.level(12)
+    def cmd_restart(self, source, target, argv):
+        """Quit in order to restart"""
+        self.core.shutdown('Requested by ' + source, restart=True)
 
     @plugbase.level(12)
     def cmd_raw(self, source, target, argv):

@@ -9,6 +9,7 @@
 import importlib
 import json
 import logging
+import sys
 
 # Twisted imports
 from twisted.words.protocols import irc
@@ -17,7 +18,6 @@ from twisted.internet import reactor, protocol
 # Project imports
 from util import Event
 import users
-
 
 class Shirk(irc.IRCClient):
     """A simple modular IRC bot.
@@ -84,16 +84,24 @@ class Shirk(irc.IRCClient):
             self.hooks[ev].discard(plug)
         del self.plugs[plugname]
 
-    def shutdown(self, msg):
+    def shutdown(self, msg, restart=False):
         """Shutdown, as it says on the tin.
 
         Tell all plugs to clean up, tell the factory that we're shutting down
         and then quit with the specified message.
 
+        If `restart` is True, this sets a flag to indicate that the program should exit with exit code 7.  This tells
+        the wrapper script (run.py) to restart afterwards.
+
         """
+        if restart:
+            self.log.info('Restart: ' + msg)
+        else:
+            self.log.info('Shutdown: ' + msg)
+        self.factory.shuttingdown = True
+        self.factory.restart = restart
         for name, plug in self.plugs.iteritems():
             plug.cleanup()
-        self.factory.shuttingdown = True
         self.quit(msg)
 
     def sendLine(self, line):
@@ -140,8 +148,10 @@ class Shirk(irc.IRCClient):
         """
         self.log.info('Connection lost: %s' % (reason,))
         try:
-            for name, plug in self.plugs.iteritems():
-                plug.cleanup()
+            if not self.factory.shuttingdown:
+                # When shutting down on purpose everything is unloaded *before* disconnecting.
+                for name, plug in self.plugs.iteritems():
+                    plug.cleanup()
             del self.users
         except AttributeError:
             # this happens when the bot is shutdown before having connected
@@ -408,6 +418,7 @@ class ShirkFactory(protocol.ReconnectingClientFactory):
     """
     def __init__(self, config, logger):
         self.shuttingdown = False
+        self.restart = False
         self.config = config
         self.log = logger
         # self.noisy is used by ReconnClientFactory to enable logging, but as
@@ -484,7 +495,7 @@ if __name__ == '__main__':
         'charset': 'utf-8'
     }
     config.update(json.load(open('conf.json')))
-    
+
     loglevel = {0: logging.WARNING,
                 1: logging.INFO,
                 2: logging.DEBUG}[config['debug']]
@@ -508,3 +519,8 @@ if __name__ == '__main__':
     reactor.connectTCP(config['server'], config['port'], f)
     # Push the big red button
     reactor.run()
+    # This doesn't happen until the reactor has finished running
+    if f.restart:
+        # Restart flag is True, so exit with code 7 rather than normally with 0
+        sys.exit(7)
+
