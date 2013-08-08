@@ -136,7 +136,10 @@ class WigglyPlug(plugbase.Plug):
                 block = "%s (%s)" \
                     % (user.nickname, ', '.join(approvals))
                 responses.append(block)
-        self.respond(source, target, ', '.join(responses))
+        if responses:
+            self.respond(source, target, ', '.join(responses))
+        else:
+            self.respond(source, target, "No users currently waiting for approval.")
 
     def handle_private(self, source, msg, action):
         """Private message handler.
