@@ -134,6 +134,7 @@ class Shirk(irc.IRCClient):
         self.realname = self.config['realname']
         self.username = self.config['username']
         self.startingup = True
+        self.startHeartbeat()
         irc.IRCClient.connectionMade(self)
 
     def connectionLost(self, reason):
@@ -147,6 +148,7 @@ class Shirk(irc.IRCClient):
 
         """
         self.log.info('Connection lost: %s' % (reason,))
+        self.stopHeartbeat()
         try:
             if not self.factory.shuttingdown:
                 # When shutting down on purpose everything is unloaded *before* disconnecting.
