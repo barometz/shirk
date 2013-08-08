@@ -148,6 +148,11 @@ plug doesn\'t override it.')
         self.log.warning('handle_userremoved has been triggered, but the \
 plug doesn\'t override it.')
 
+    def handle_userrenamed(self, user):
+        """Called when a user changes their nickname"""
+        self.log.warning('handle_userrenamed has been triggered, but the \
+plug doesn\'t override it.')
+
     def handle_raw(self, command, prefix, params):
         """Called for the raw hooks.
 

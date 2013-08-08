@@ -15,7 +15,7 @@ class CorePlug(plugbase.Plug):
 
     """
     name = 'Core'
-    commands = ['plugs', 'commands', 'raw', 'quit', 'reload', 'hooks']
+    commands = ['plugs', 'commands', 'raw', 'quit', 'reload', 'hooks', 'ping']
 
     def cmd_commands(self, source, target, argv):
         """List registered commands."""
@@ -74,3 +74,8 @@ class CorePlug(plugbase.Plug):
         """
         for ev, hooks in self.core.hooks.iteritems():
             print ev, hooks
+
+    @plugbase.level(1)
+    def cmd_ping(self, source, target, argv):
+        """Are you still there?"""
+        self.respond(source, target, '%s: pong!' % (source,))

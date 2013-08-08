@@ -38,7 +38,7 @@ class Shirk(irc.IRCClient):
     # List of events that don't need any other information in the hook,
     # unlike .command and .raw which need other params specified.
     _simple_events = [Event.addressed, Event.chanmsg, Event.private,
-        Event.userjoined, Event.usercreated, Event.userremoved]
+        Event.userjoined, Event.usercreated, Event.userremoved, Event.userrenamed]
 
     def load_plugs(self):
         """Load the plugs listed in config."""
@@ -342,6 +342,11 @@ class Shirk(irc.IRCClient):
         """
         for plug in self.hooks[Event.userremoved]:
             plug.handle_userremoved(user)
+
+    def event_userrenamed(self, user, oldnick):
+        """A user has changed their nickname."""
+        for plug in self.hooks[Event.userrenamed]:
+            plug.handle_userrenamed(user, oldnick)
 
     ## Things modules will want to use
 

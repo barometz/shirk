@@ -13,3 +13,4 @@ class Event:
     userjoined = 'event_userjoined'
     usercreated = 'event_usercreated'
     userremoved = 'event_userremoved'
+    userrenamed = 'event_userrenamed'
