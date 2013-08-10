@@ -37,8 +37,9 @@ class Shirk(irc.IRCClient):
     sourceURL = "https://github.com/barometz/shirk"
     # List of events that don't need any other information in the hook,
     # unlike .command and .raw which need other params specified.
-    _simple_events = [Event.addressed, Event.chanmsg, Event.private,
-        Event.userjoined, Event.usercreated, Event.userremoved, Event.userrenamed]
+    _simple_events = [Event.addressed, Event.chanmsg, Event.private, Event.userjoined, Event.usercreated,
+                      Event.userrenamed, Event.userremoved, Event.modechanged, Event.delayevent, Event.invokedevent,
+                      Event.kickedfrom]
 
     def load_plugs(self):
         """Load the plugs listed in config."""
@@ -174,6 +175,15 @@ class Shirk(irc.IRCClient):
         """Called when I finish joining a channel."""
         self.sendLine('WHO %s' % (channel,))
 
+    def delayEvent(self, event, delay, argv):
+        """Delay an event"""
+        reactor.callLater(delay, self.invokeEvent, argv)
+
+    def invokeEvent(self, argv):
+        """invoke a delayed event"""
+        for plug in self.hooks[Event.invokedevent]:
+            plug.handle_invokedevent(argv)
+
     # Things other users do
 
     def userJoined(self, user, channel):
@@ -255,6 +265,16 @@ class Shirk(irc.IRCClient):
                 self.event_raw(command, prefix, params)
         except irc.IRCBadMessage:
             self.badMessage(line, *sys.exc_info())
+
+    def modeChanged(self, nickname, channel, set, modes, argv):
+        """Mode change received"""
+        for plug in self.hooks[Event.modechanged]:
+            plug.handle_modechanged(nickname, channel, set, modes, argv)
+
+    def kickedFrom(self, channel, kicker, message):
+        """kicked from channel"""
+        for plug in self.hooks[Event.kickedfrom]:
+            plug.handle_kickedfrom(channel, kicker, message)
 
     ## Shirk's events that modules can register callbacks for
 
@@ -507,12 +527,14 @@ if __name__ == '__main__':
     consolelog.setLevel(logging.DEBUG)
     filelog = logging.FileHandler('shirk.log', encoding='utf-8')
     filelog.setLevel(logging.INFO)
+
     consolelog.setFormatter(logging.Formatter(
         fmt='%(asctime)s %(levelname)-8s %(name)s: %(message)s',
         datefmt='%m/%d %H:%M:%S'))
     filelog.setFormatter(logging.Formatter(
         fmt='%(asctime)s %(levelname)-8s %(name)s: %(message)s',
         datefmt='%Y-%m-%d/%H:%M:%S'))
+
     logger.addHandler(consolelog)
     logger.addHandler(filelog)
 
