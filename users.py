@@ -84,6 +84,7 @@ class Users(object):
             del self.users_by_nick[oldnick]
             self.log.debug('Changed nickname of %s to %s'
                 % (oldnick, newnick))
+            self.core.event_userrenamed(user, oldnick)
 
     def delete_user(self, user):
         """Deletes a user, as far as we can from here.

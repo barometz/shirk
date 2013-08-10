@@ -13,7 +13,4 @@ class Event:
     userjoined = 'event_userjoined'
     usercreated = 'event_usercreated'
     userremoved = 'event_userremoved'
-    modechanged = 'event_modechanged'
-    delayevent = 'event_delay'
-    invokedevent = 'event_invokedevent'
-    kickedfrom = 'event_kickedfrom'
+    userrenamed = 'event_userrenamed'

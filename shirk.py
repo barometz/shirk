@@ -19,7 +19,6 @@ from twisted.internet import reactor, protocol
 from util import Event
 import users
 
-
 class Shirk(irc.IRCClient):
     """A simple modular IRC bot.
 
@@ -39,7 +38,7 @@ class Shirk(irc.IRCClient):
     # List of events that don't need any other information in the hook,
     # unlike .command and .raw which need other params specified.
     _simple_events = [Event.addressed, Event.chanmsg, Event.private,
-        Event.userjoined, Event.usercreated, Event.userremoved, Event.modechanged, Event.delayevent, Event.invokedevent, Event.kickedfrom]
+        Event.userjoined, Event.usercreated, Event.userremoved, Event.userrenamed]
 
     def load_plugs(self):
         """Load the plugs listed in config."""
@@ -85,16 +84,24 @@ class Shirk(irc.IRCClient):
             self.hooks[ev].discard(plug)
         del self.plugs[plugname]
 
-    def shutdown(self, msg):
+    def shutdown(self, msg, restart=False):
         """Shutdown, as it says on the tin.
 
         Tell all plugs to clean up, tell the factory that we're shutting down
         and then quit with the specified message.
 
+        If `restart` is True, this sets a flag to indicate that the program should exit with exit code 7.  This tells
+        the wrapper script (run.py) to restart afterwards.
+
         """
+        if restart:
+            self.log.info('Restart: ' + msg)
+        else:
+            self.log.info('Shutdown: ' + msg)
+        self.factory.shuttingdown = True
+        self.factory.restart = restart
         for name, plug in self.plugs.iteritems():
             plug.cleanup()
-        self.factory.shuttingdown = True
         self.quit(msg)
 
     def sendLine(self, line):
@@ -127,6 +134,7 @@ class Shirk(irc.IRCClient):
         self.realname = self.config['realname']
         self.username = self.config['username']
         self.startingup = True
+        self.startHeartbeat()
         irc.IRCClient.connectionMade(self)
 
     def connectionLost(self, reason):
@@ -140,9 +148,12 @@ class Shirk(irc.IRCClient):
 
         """
         self.log.info('Connection lost: %s' % (reason,))
+        self.stopHeartbeat()
         try:
-            for name, plug in self.plugs.iteritems():
-                plug.cleanup()
+            if not self.factory.shuttingdown:
+                # When shutting down on purpose everything is unloaded *before* disconnecting.
+                for name, plug in self.plugs.iteritems():
+                    plug.cleanup()
             del self.users
         except AttributeError:
             # this happens when the bot is shutdown before having connected
@@ -162,15 +173,6 @@ class Shirk(irc.IRCClient):
     def joined(self, channel):
         """Called when I finish joining a channel."""
         self.sendLine('WHO %s' % (channel,))
-
-    def delayEvent(self, event, delay, argv):
-        """Delay an event"""
-        reactor.callLater(delay, self.invokeEvent, argv)
-
-    def invokeEvent(self, argv):
-        """invoke a delayed event"""
-        for plug in self.hooks[Event.invokedevent]:
-            plug.handle_invokedevent(argv)
 
     # Things other users do
 
@@ -253,16 +255,6 @@ class Shirk(irc.IRCClient):
                 self.event_raw(command, prefix, params)
         except irc.IRCBadMessage:
             self.badMessage(line, *sys.exc_info())
-    
-    def modeChanged(self, nickname, channel, set, modes, argv):
-        """Mode change received"""
-        for plug in self.hooks[Event.modechanged]:
-            plug.handle_modechanged(nickname, channel, set, modes, argv)
-
-    def kickedFrom(self, channel, kicker, message):
-        """kicked from channel"""
-        for plug in self.hooks[Event.kickedfrom]:
-            plug.handle_kickedfrom(channel, kicker, message)
 
     ## Shirk's events that modules can register callbacks for
 
@@ -327,7 +319,6 @@ class Shirk(irc.IRCClient):
         params: ['shirks', 'barometz', 'nazgjunk', 'is logged in as']
 
         """
-        #self.log.debug("Event_raw: %s, %s, %s" % (command, prefix, params))
         if command in self.hooks[Event.raw]:
             to_call = set(self.hooks[Event.raw][command])
             for plug in to_call:
@@ -363,6 +354,11 @@ class Shirk(irc.IRCClient):
         """
         for plug in self.hooks[Event.userremoved]:
             plug.handle_userremoved(user)
+
+    def event_userrenamed(self, user, oldnick):
+        """A user has changed their nickname."""
+        for plug in self.hooks[Event.userrenamed]:
+            plug.handle_userrenamed(user, oldnick)
 
     ## Things modules will want to use
 
@@ -414,7 +410,7 @@ class Shirk(irc.IRCClient):
         if cmd not in self.hooks[Event.raw]:
             self.hooks[Event.raw][cmd] = set()
         self.hooks[Event.raw][cmd].add(plug)
-        
+
 
 class ShirkFactory(protocol.ReconnectingClientFactory):
     """A factory for Shirk.
@@ -424,6 +420,7 @@ class ShirkFactory(protocol.ReconnectingClientFactory):
     """
     def __init__(self, config, logger):
         self.shuttingdown = False
+        self.restart = False
         self.config = config
         self.log = logger
         # self.noisy is used by ReconnClientFactory to enable logging, but as
@@ -432,7 +429,6 @@ class ShirkFactory(protocol.ReconnectingClientFactory):
         self.initialDelay = config['reconn_delay']
         self.delay = self.initialDelay
         self.maxRetries = config['reconn_tries']
-        
 
     def buildProtocol(self, addr):
         p = Shirk()
@@ -498,39 +494,35 @@ if __name__ == '__main__':
         # Maximum reconnection retries
         'reconn_tries': 8,
         # charset used to decode messages
-        'charset': 'utf-8',
+        'charset': 'utf-8'
     }
-    
     config.update(json.load(open('conf.json')))
-    
 
     loglevel = {0: logging.WARNING,
                 1: logging.INFO,
                 2: logging.DEBUG}[config['debug']]
     logger = logging.getLogger('shirk')
     logger.setLevel(loglevel)
-    
-    
-    
     consolelog = logging.StreamHandler()
     consolelog.setLevel(logging.DEBUG)
-
     filelog = logging.FileHandler('shirk.log', encoding='utf-8')
     filelog.setLevel(logging.INFO)
-
     consolelog.setFormatter(logging.Formatter(
         fmt='%(asctime)s %(levelname)-8s %(name)s: %(message)s',
         datefmt='%m/%d %H:%M:%S'))
     filelog.setFormatter(logging.Formatter(
         fmt='%(asctime)s %(levelname)-8s %(name)s: %(message)s',
         datefmt='%Y-%m-%d/%H:%M:%S'))
-    
     logger.addHandler(consolelog)
     logger.addHandler(filelog)
-
 
     # Create and connect the client factory
     f = ShirkFactory(config, logger)
     reactor.connectTCP(config['server'], config['port'], f)
     # Push the big red button
     reactor.run()
+    # This doesn't happen until the reactor has finished running
+    if f.restart:
+        # Restart flag is True, so exit with code 7 rather than normally with 0
+        sys.exit(7)
+

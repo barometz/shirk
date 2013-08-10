@@ -15,12 +15,10 @@ class CorePlug(plugbase.Plug):
 
     """
     name = 'Core'
-    commands = ['plugs', 'commands', 'raw', 'quit', 'reload', 'hooks']
-    #hooks = [Event.modechanged, Event.invokedevent] 
-    #knockout = {}
+    commands = ['plugs', 'commands', 'raw', 'quit', 'restart', 'reload', 'hooks', 'ping']
 
     def cmd_commands(self, source, target, argv):
-        #""List registered commands.#""
+        """List registered commands."""
         # Only list those commands that have any plugs
         response = ', '.join([cmd for cmd
             in self.core.hooks[Event.command].keys()
@@ -36,6 +34,11 @@ class CorePlug(plugbase.Plug):
     def cmd_quit(self, source, target, argv):
         """Disconnect and close."""
         self.core.shutdown('Requested by ' + source)
+
+    @plugbase.level(12)
+    def cmd_restart(self, source, target, argv):
+        """Quit in order to restart"""
+        self.core.shutdown('Requested by ' + source, restart=True)
 
     @plugbase.level(12)
     def cmd_raw(self, source, target, argv):
@@ -76,3 +79,8 @@ class CorePlug(plugbase.Plug):
         """
         for ev, hooks in self.core.hooks.iteritems():
             print ev, hooks
+
+    @plugbase.level(1)
+    def cmd_ping(self, source, target, argv):
+        """Are you still there?"""
+        self.respond(source, target, '%s: pong!' % (source,))
