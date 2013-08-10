@@ -7,19 +7,19 @@ import json
 from functools import wraps
 
 
-def level(level):
-    """Decorator for !commands.
-
-    When applied to a function cmd_foo(self, nickname, *args) this will check
-    whether the user known by nickname has a power of at least level.
-
-    """
+def command(trigger=None, level=0):
+    """Return a decorator that marks the provided function as a !command handler."""
     def decorator(f):
         @wraps(f)
-        def newf(self, nickname, *args):
-            user = self.users.by_nick(nickname)
+        def newf(self, source, target, argv):
+            user = self.users.by_nick(source)
             if user and user.power >= level:
-                f(self, nickname, *args)
+                f(self, source, target, argv)
+        if trigger is None:
+            cmd = f.func_name.split('_', 1)[1]
+        else:
+            cmd = trigger
+        newf._shirk_trigger = cmd
         return newf
     return decorator
 
@@ -31,7 +31,6 @@ class Plug(object):
 
     """
     name = "Plug"
-    commands = []
     hooks = []
     rawhooks = []
 
@@ -46,6 +45,8 @@ class Plug(object):
         instead.
 
         """
+        # `self._commands` is a dictionary of "foo": function, where !foo will trigger the function to be called.
+        self._commands = dict()
         self.log = core.log.getChild(self.name)
         self.log.info("Loading")
         self.core = core
@@ -75,8 +76,18 @@ class Plug(object):
         pass
 
     def hook_events(self):
-        """Ask the core to add whatever callbacks have been specified."""
-        for cmd in self.commands:
+        """Ask the core to add whatever callbacks have been specified.
+
+        Collects handlers by checking all attributes (through `dir()`) for relevant metadata.
+        """
+        for name in dir(self):
+            attr = getattr(self, name)
+            # Ignore `__*` attributes because there are plenty of those and hasattr() isn't free.
+            # Then see whether the attribute has a ._shirk_trigger, if so then use it.
+            if not name.startswith('__') and hasattr(attr, '_shirk_trigger'):
+                self.log.debug("Registering handler %s for command %s" % (attr, attr._shirk_trigger))
+                self._commands[attr._shirk_trigger] = attr
+        for cmd in self._commands:
             self.core.add_command(cmd, self)
         for event in self.hooks:
             self.core.add_callback(event, self)
@@ -121,12 +132,14 @@ doesn\'t override it.')
     def handle_command(self, source, target, argv):
         """Call the right function when a !command is passed to this plug.
 
-        Defaults to calling self.cmd_<command>, or self.unhandled_cmd if
+        Looks the handler up in self._commands and calls self.unhandled_cmd if
         nothing appropriate is found.  Feel free to override.
 
         """
-        callback = getattr(self, 'cmd_' + argv[0], self.unhandled_cmd)
-        callback(source, target, argv)
+        if argv[0] in self._commands:
+            self._commands[argv[0]](source, target, argv)
+        else:
+            self.unhandled_cmd(source, target, argv)
 
     def handle_private(self, source, msg, action):
         """Called when the bot receives a private message"""

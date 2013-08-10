@@ -10,7 +10,6 @@ class AuthPlug(plugbase.Plug):
     name = 'Auth'
     hooks = [Event.usercreated, Event.userrenamed]
     rawhooks = ['330']
-    commands = ['auth', 'whoami']
 
     # manual_auths is a dict of source:target that are created after !auth requests so they can be
     # responded to appropriately.
@@ -75,6 +74,7 @@ class AuthPlug(plugbase.Plug):
             user = self.users.by_nick(nickname)
             self.powerup(user, self.users_auth[account], 'NickServ', account)
 
+    @plugbase.command()
     def cmd_auth(self, source, target, argv):
         """!auth handler to trigger authentication when that didn't happen right at join."""
         user = self.users.by_nick(source)
@@ -82,6 +82,7 @@ class AuthPlug(plugbase.Plug):
             self.manual_auths[source] = target
             self.handle_usercreated(user)
 
+    @plugbase.command()
     def cmd_whoami(self, source, target, argv):
         """Tell the user what their power is and why."""
         user = self.users.by_nick(source)

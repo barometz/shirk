@@ -15,8 +15,8 @@ class CorePlug(plugbase.Plug):
 
     """
     name = 'Core'
-    commands = ['plugs', 'commands', 'raw', 'quit', 'restart', 'reload', 'hooks', 'ping']
 
+    @plugbase.command()
     def cmd_commands(self, source, target, argv):
         """List registered commands."""
         # Only list those commands that have any plugs
@@ -25,27 +25,28 @@ class CorePlug(plugbase.Plug):
             if self.core.hooks[Event.command][cmd]])
         self.respond(source, target, response)
 
+    @plugbase.command()
     def cmd_plugs(self, source, target, argv):
         """List the loaded plugs"""
         response = ', '.join(self.core.plugs)
         self.respond(source, target, response)
 
-    @plugbase.level(12)
+    @plugbase.command(level=12)
     def cmd_quit(self, source, target, argv):
         """Disconnect and close."""
         self.core.shutdown('Requested by ' + source)
 
-    @plugbase.level(12)
+    @plugbase.command(level=12)
     def cmd_restart(self, source, target, argv):
         """Quit in order to restart"""
         self.core.shutdown('Requested by ' + source, restart=True)
 
-    @plugbase.level(12)
+    @plugbase.command(level=12)
     def cmd_raw(self, source, target, argv):
         """Send a raw message to the server."""
         self.core.sendLine(' '.join(argv[1:]))
 
-    @plugbase.level(12)
+    @plugbase.command(level=12)
     def cmd_reload(self, source, target, argv):
         """Reload specified modules."""
         for plugname in argv[1:]:
@@ -70,7 +71,7 @@ class CorePlug(plugbase.Plug):
                 if plugname == 'Core':
                     del self.core
 
-    @plugbase.level(15)
+    @plugbase.command(level=15)
     def cmd_hooks(self, source, target, argv):
         """List all current hooks on the terminal.
 
@@ -80,7 +81,7 @@ class CorePlug(plugbase.Plug):
         for ev, hooks in self.core.hooks.iteritems():
             print ev, hooks
 
-    @plugbase.level(1)
+    @plugbase.command(level=1)
     def cmd_ping(self, source, target, argv):
         """Are you still there?"""
         self.respond(source, target, '%s: pong!' % (source,))
