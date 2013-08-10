@@ -1,6 +1,7 @@
 # Project-specific
 conf.json
 plugconf/*.json
+*.log
 
 # Emacs noise
 *#
