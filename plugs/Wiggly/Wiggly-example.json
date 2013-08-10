@@ -1,7 +1,0 @@
-{
-	"creation_script": "/path/to/newuser.sh",
-	"template_path": "/path/to/mail/template.txt",
-	"signup_log": "/path/to/signups.log",
-	"mail_from": "bot@mail.com",
-	"smtphost": "localhost"
-}
