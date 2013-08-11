@@ -5,6 +5,7 @@
 
 import json
 from functools import wraps
+from util import Event
 
 
 def command(trigger=None, level=0):
@@ -17,6 +18,7 @@ def command(trigger=None, level=0):
                     !foo.
     :param level: The required user level for this handler.  Depends on the
                   Auth plug.
+
     """
     def decorator(f):
         @wraps(f)
@@ -41,6 +43,7 @@ def raw(code=None):
                  numerical ('433', '318'), but is always a string.
                  When not provided, a function named *_<code> (e.g. handle_330)
                  will be triggered for <code> ('330').
+
     """
     def decorator(f):
         if code is None:
@@ -52,6 +55,26 @@ def raw(code=None):
     return decorator
 
 
+def event(f):
+    """Mark the decorated function as a handler for an event as defined in
+    util.Event.
+
+    The function name should match *_<eventname>, where <eventname> is one of
+    the constants in util.Event.
+
+    """
+    # Remark: The addition of this decorator pretty much makes util.Event
+    # obsolete.  This is on purpose: the event system is up for a rewrite
+    # anyway, as described in <https://github.com/barometz/shirk/issues/10>.
+    # The current tight coupling in the event system is also why this doesn't
+    # allow for passing the event as an argument; rewriting for that would be
+    # more work than it's worth.
+    name = f.func_name.split('_', 1)[1]
+    _event = getattr(Event, name)
+    f._shirk_event = _event
+    return f
+
+
 class Plug(object):
     """Base class for Shirk plugs.
 
@@ -59,7 +82,6 @@ class Plug(object):
 
     """
     name = "Plug"
-    hooks = []
 
     def __init__(self, core, startingup=True):
         """Create a new Plug instance.  
@@ -73,9 +95,11 @@ class Plug(object):
 
         """
         # `self._commands` is a dictionary of "foo": function, where !foo will
-        # trigger the function to be called.  Similar for `_rawhooks`.
+        # trigger the function to be called.  Similar for `_rawhooks` and
+        # `_eventhooks`.
         self._commands = dict()
         self._rawhooks = dict()
+        self._eventhooks = dict()
         self.log = core.log.getChild(self.name)
         self.log.info("Loading")
         self.core = core
@@ -105,11 +129,9 @@ class Plug(object):
         pass
 
     def hook_events(self):
-        """Ask the core to add whatever callbacks have been specified.
-
-        Collects handlers by checking all attributes (through `dir()`) for
-        relevant metadata.
-        """
+        """Ask the core to add whatever callbacks have been specified."""
+        # Collect handlers by checking all the plug's attributes for relevant
+        # metadata
         for name in dir(self):
             attr = getattr(self, name)
             # Ignore `__*` attributes because there are plenty of those and
@@ -125,9 +147,14 @@ class Plug(object):
                         'Registering handler %s for raw IRC command %s'
                         % (attr, attr._shirk_raw))
                     self._rawhooks[attr._shirk_raw] = attr
+                elif hasattr(attr, '_shirk_event'):
+                    self.log.debug('Registering handler %s for event %s'
+                                   % (attr, attr._shirk_event))
+                    self._eventhooks[attr._shirk_event] = attr
+        # Now prod the core to actually register things
         for cmd in self._commands:
             self.core.add_command(cmd, self)
-        for event in self.hooks:
+        for event in self._eventhooks:
             self.core.add_callback(event, self)
         for cmd in self._rawhooks:
             self.core.add_raw(cmd, self)

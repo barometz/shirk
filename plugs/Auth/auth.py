@@ -8,7 +8,6 @@ from util import Event
 class AuthPlug(plugbase.Plug):
     """Auth plug.  Handles auth stuffs."""
     name = 'Auth'
-    hooks = [Event.usercreated, Event.userrenamed]
 
     # manual_auths is a dict of source:target that are created after !auth requests so they can be
     # responded to appropriately.
@@ -20,6 +19,7 @@ class AuthPlug(plugbase.Plug):
             for nick, user in self.users.users_by_nick.iteritems():
                 self.handle_usercreated(user)
 
+    @plugbase.event
     def handle_usercreated(self, user):
         """A user has joined a channel, so let's give them perms."""
         user.power = 0
@@ -40,6 +40,7 @@ class AuthPlug(plugbase.Plug):
                          "%s is not in the auth file.  This incident will be reported." % user.nickname)
             del self.manual_auths[user.nickname]
 
+    @plugbase.event
     def handle_userrenamed(self, user, oldnick):
         """A user has changed their nickname, let's recheck auth"""
         for nick in self.known_nicks:
