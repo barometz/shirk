@@ -8,9 +8,6 @@ from util import Event
 class AuthPlug(plugbase.Plug):
     """Auth plug.  Handles auth stuffs."""
     name = 'Auth'
-    hooks = [Event.usercreated, Event.userrenamed]
-    rawhooks = ['330']
-    commands = ['auth', 'whoami']
 
     # manual_auths is a dict of source:target that are created after !auth requests so they can be
     # responded to appropriately.
@@ -22,6 +19,7 @@ class AuthPlug(plugbase.Plug):
             for nick, user in self.users.users_by_nick.iteritems():
                 self.handle_usercreated(user)
 
+    @plugbase.event
     def handle_usercreated(self, user):
         """A user has joined a channel, so let's give them perms."""
         user.power = 0
@@ -42,6 +40,7 @@ class AuthPlug(plugbase.Plug):
                          "%s is not in the auth file.  This incident will be reported." % user.nickname)
             del self.manual_auths[user.nickname]
 
+    @plugbase.event
     def handle_userrenamed(self, user, oldnick):
         """A user has changed their nickname, let's recheck auth"""
         for nick in self.known_nicks:
@@ -67,14 +66,16 @@ class AuthPlug(plugbase.Plug):
         self.log.info('Power of %s set to %d based on %s: %s'
                 % (user.nickname, user.power, auth_method, auth_match))
 
-    def raw_330(self, command, prefix, params):
-        """RPL code for Freenode's "logged in as" message on whois."""
+    @plugbase.raw('330')
+    def handle_loggedinas(self, command, prefix, params):
+        """Act on Freenode's 'Logged in as:' response in the WHOIS reply."""
         nickname = params[1]
         account = params[2]
         if account in self.users_auth:
             user = self.users.by_nick(nickname)
             self.powerup(user, self.users_auth[account], 'NickServ', account)
 
+    @plugbase.command()
     def cmd_auth(self, source, target, argv):
         """!auth handler to trigger authentication when that didn't happen right at join."""
         user = self.users.by_nick(source)
@@ -82,6 +83,7 @@ class AuthPlug(plugbase.Plug):
             self.manual_auths[source] = target
             self.handle_usercreated(user)
 
+    @plugbase.command()
     def cmd_whoami(self, source, target, argv):
         """Tell the user what their power is and why."""
         user = self.users.by_nick(source)

@@ -17,9 +17,6 @@ class GuardPlug(plugbase.Plug):
     # Properties
     
     name = 'Guard'
-    commands = ['rejoin', 'knockout', 'users' ]
-    hooks = [Event.modechanged, Event.invokedevent, Event.userjoined, Event.kickedfrom ] 
-    rawhooks = [ '474', 'PRIVMSG', 'NOTICE' ]
 
     operator = {}
     flags = {}
@@ -43,7 +40,7 @@ class GuardPlug(plugbase.Plug):
     
 
     # Commands
-
+    @plugbase.command()
     def cmd_users(self, source, target, argv):
         """ Return the current user count per channel. """
         nicks = 0
@@ -60,13 +57,13 @@ class GuardPlug(plugbase.Plug):
             if channel in user.channels: nicks += 1
         self.respond(target, source, "Counted %d nicks in %s." % (nicks, channel))
 
-    @plugbase.level(12)
+    @plugbase.command(level=12)
     def cmd_rejoin(self, source, target, argv):
         """Rejoin all known channels."""
         for chan in self.core.config['channels']:
             self.core.join(chan)
 
-    @plugbase.level(10)
+    @plugbase.command(level=10)
     def cmd_knockout(self, source, target, argv):
         """ 
             Knockout command received from an op, initiate knockout procedure.
@@ -95,6 +92,7 @@ class GuardPlug(plugbase.Plug):
         else:
             self.respond(target, source, "%s: Usage: !knockout nickname <timeout [minutes]> <message>" % (source))
 
+    @plugbase.raw()
     def raw_474(self, command, prefix, params):
         """
             Received a ban message upon joining a channel.
@@ -110,6 +108,7 @@ class GuardPlug(plugbase.Plug):
             params=[ 'rejoin', channel ]
             self.core.delayEvent(Event.delayevent, self.rejoin_timeout, params)
 
+    @plugbase.raw()
     def raw_PRIVMSG(self, cmd, prefix, params):
         """
             Receives raw commands, strips first character and see if it is in the knockout commands.
@@ -136,7 +135,8 @@ class GuardPlug(plugbase.Plug):
                         self.respond(channel, nickname, "%s: %s" % (nickname, self.help_msg[0]))
         except AttributeError: 
             self.log.debug("Attribute Error at raw_PRIVMSG %s." % (command))
-    
+
+    @plugbase.raw()
     def raw_NOTICE(self, cmd, prefix, params):
         """ Strips the flags from a message after status request (handle_userjoined) """
         msg = params[1].split('\x02')
@@ -147,7 +147,8 @@ class GuardPlug(plugbase.Plug):
             self.log.info("self.flags[%s] = %s " % (channel, flags))
 
     # Events
-    
+
+    @plugbase.event
     def handle_userjoined(self, nickname, channel):
         """If the bot is joined to channel, reset rejoin tries and get the modes for the bot on the channel """
         if nickname == self.core.nickname:
@@ -159,11 +160,13 @@ class GuardPlug(plugbase.Plug):
                 self.core.delayEvent(Event.delayevent, 60, [ 'recover' ] )
             self.core.sendLine('chanserv status %s' % (channel))
 
+    @plugbase.event
     def handle_kickedfrom(self, channel, kicker, message):
         """the bot got kicked from a channel, so lets try to rejon."""
         self.log.info('Kicked from %s by %s, reason: %s' % (channel, kicker, message))
         self.core.join(channel)
 
+    @plugbase.event
     def handle_invokedevent(self, argv):
         """
             The callback for any delayed event. The first argument of argv defines the action to be taken.
@@ -175,7 +178,8 @@ class GuardPlug(plugbase.Plug):
             self.core.join(channel)
         elif command == 'recover':
             self.fn_recover()
-         
+
+    @plugbase.event
     def handle_modechanged(self, source, channel, set, modes, argv):
         """ Watch the mode change to see if the bot needs something to do """
         nick=argv[0]

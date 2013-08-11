@@ -62,8 +62,6 @@ class WigglyPlug(plugbase.Plug):
     """
     # Plug settings
     name = 'Wiggly'
-    hooks = [Event.private]
-    commands = ['approve', 'reject', 'waiting', 'close', 'open']
     # Wiggly-specific options
     approval_threshold = 2
     _closed = None
@@ -78,7 +76,7 @@ class WigglyPlug(plugbase.Plug):
         with open(self.template_path) as f:
             self.mail_template = f.read()
 
-    @plugbase.level(10)
+    @plugbase.command(level=10)
     def cmd_close(self, source, target, argv):
         """Close registration with an optional reason."""
         if len(argv) < 2:
@@ -88,7 +86,7 @@ class WigglyPlug(plugbase.Plug):
         self.log.info("%s closed registrations." % (source,))
         self.respond(source, target, "Closed for registration: %s" % (self._closed,))
 
-    @plugbase.level(10)
+    @plugbase.command(level=10)
     def cmd_open(self, source, target, argv):
         """(Re)open registration."""
         if self._closed is not None:
@@ -98,7 +96,7 @@ class WigglyPlug(plugbase.Plug):
         else:
             self.respond(source, target, "Already open for registration.")
 
-    @plugbase.level(10)
+    @plugbase.command(level=10)
     def cmd_approve(self, source, target, argv):
         """!approve handler.
 
@@ -130,7 +128,7 @@ class WigglyPlug(plugbase.Plug):
             if not self.users.by_uid(uid):
                 del self.signups[uid]
 
-    @plugbase.level(10)
+    @plugbase.command(level=10)
     def cmd_reject(self, source, target, argv):
         """Reject a user.
 
@@ -145,7 +143,7 @@ class WigglyPlug(plugbase.Plug):
             self.respond(source, target, '%s no longer has any approvals.' %
                 (user.nickname,))
 
-    @plugbase.level(10)
+    @plugbase.command(level=10)
     def cmd_waiting(self, source, target, argv):
         """List all users waiting for additional approvals."""
         responses = []
@@ -165,6 +163,7 @@ class WigglyPlug(plugbase.Plug):
         else:
             self.respond(source, target, "No users currently waiting for approval.")
 
+    @plugbase.event
     def handle_private(self, source, msg, action):
         """Private message handler.
 

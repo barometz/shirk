@@ -315,6 +315,7 @@ class Shirk(irc.IRCClient):
             # raises an error "Set changed size during iteration"
             to_call = set(self.hooks[Event.command][argv[0]])
             for plug in to_call:
+                self.log.debug("Calling %s for command %s" % (plug, argv[0]))
                 plug.handle_command(source, target, argv)
 
     def event_private(self, source, msg, action):
