@@ -9,7 +9,6 @@ class AuthPlug(plugbase.Plug):
     """Auth plug.  Handles auth stuffs."""
     name = 'Auth'
     hooks = [Event.usercreated, Event.userrenamed]
-    rawhooks = ['330']
 
     # manual_auths is a dict of source:target that are created after !auth requests so they can be
     # responded to appropriately.
@@ -66,8 +65,9 @@ class AuthPlug(plugbase.Plug):
         self.log.info('Power of %s set to %d based on %s: %s'
                 % (user.nickname, user.power, auth_method, auth_match))
 
-    def raw_330(self, command, prefix, params):
-        """RPL code for Freenode's "logged in as" message on whois."""
+    @plugbase.raw('330')
+    def handle_loggedinas(self, command, prefix, params):
+        """Act on Freenode's 'Logged in as:' response in the WHOIS reply."""
         nickname = params[1]
         account = params[2]
         if account in self.users_auth:

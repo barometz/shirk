@@ -8,7 +8,16 @@ from functools import wraps
 
 
 def command(trigger=None, level=0):
-    """Return a decorator that marks the provided function as a !command handler."""
+    """Mark the decorated function as a !command handler.
+
+    :param trigger: The !command that should trigger this handler.  For
+                    instance, to respond to !foo this should be set to 'foo'.
+                    When this is not provided, a function called `*_foo`
+                    (`cmd_foo`, `handler_foo`, etc) will be registered for
+                    !foo.
+    :param level: The required user level for this handler.  Depends on the
+                  Auth plug.
+    """
     def decorator(f):
         @wraps(f)
         def newf(self, source, target, argv):
@@ -19,8 +28,27 @@ def command(trigger=None, level=0):
             cmd = f.func_name.split('_', 1)[1]
         else:
             cmd = trigger
-        newf._shirk_trigger = cmd
+        newf._shirk_command = cmd
         return newf
+    return decorator
+
+
+def raw(code=None):
+    """Mark the decorated function as a handler for a raw IRC command.
+
+    :param code: The command that should trigger this function.  Can be either
+                 symbolical ('ERR_NICKNAMEINUSE', 'RPL_ENDOFWHOIS') or
+                 numerical ('433', '318'), but is always a string.
+                 When not provided, a function named *_<code> (e.g. handle_330)
+                 will be triggered for <code> ('330').
+    """
+    def decorator(f):
+        if code is None:
+            cmd = f.func_name.split('_', 1)[1]
+        else:
+            cmd = code
+        f._shirk_raw = cmd
+        return f
     return decorator
 
 
@@ -32,7 +60,6 @@ class Plug(object):
     """
     name = "Plug"
     hooks = []
-    rawhooks = []
 
     def __init__(self, core, startingup=True):
         """Create a new Plug instance.  
@@ -45,8 +72,10 @@ class Plug(object):
         instead.
 
         """
-        # `self._commands` is a dictionary of "foo": function, where !foo will trigger the function to be called.
+        # `self._commands` is a dictionary of "foo": function, where !foo will
+        # trigger the function to be called.  Similar for `_rawhooks`.
         self._commands = dict()
+        self._rawhooks = dict()
         self.log = core.log.getChild(self.name)
         self.log.info("Loading")
         self.core = core
@@ -78,20 +107,29 @@ class Plug(object):
     def hook_events(self):
         """Ask the core to add whatever callbacks have been specified.
 
-        Collects handlers by checking all attributes (through `dir()`) for relevant metadata.
+        Collects handlers by checking all attributes (through `dir()`) for
+        relevant metadata.
         """
         for name in dir(self):
             attr = getattr(self, name)
-            # Ignore `__*` attributes because there are plenty of those and hasattr() isn't free.
-            # Then see whether the attribute has a ._shirk_trigger, if so then use it.
-            if not name.startswith('__') and hasattr(attr, '_shirk_trigger'):
-                self.log.debug("Registering handler %s for command %s" % (attr, attr._shirk_trigger))
-                self._commands[attr._shirk_trigger] = attr
+            # Ignore `__*` attributes because there are plenty of those and
+            # hasattr() isn't free.  Then see whether the attribute has a
+            # ._shirk_<whatever>, if so then use it.
+            if not name.startswith('__'):
+                if hasattr(attr, '_shirk_command'):
+                    self.log.debug('Registering handler %s for command %s'
+                                   % (attr, attr._shirk_command))
+                    self._commands[attr._shirk_command] = attr
+                elif hasattr(attr, '_shirk_raw'):
+                    self.log.debug(
+                        'Registering handler %s for raw IRC command %s'
+                        % (attr, attr._shirk_raw))
+                    self._rawhooks[attr._shirk_raw] = attr
         for cmd in self._commands:
             self.core.add_command(cmd, self)
         for event in self.hooks:
             self.core.add_callback(event, self)
-        for cmd in self.rawhooks:
+        for cmd in self._rawhooks:
             self.core.add_raw(cmd, self)
 
     def cleanup(self):
@@ -173,8 +211,10 @@ plug doesn\'t override it.')
         nothing appropriate is found.  Feel free to override.
 
         """
-        callback = getattr(self, 'raw_' + command, self.unhandled_raw)
-        callback(command, prefix, params)
+        if command in self._rawhooks:
+            self._rawhooks[command](command, prefix, params)
+        else:
+            self.unhandled_raw(command, prefix, params)
 
     def unhandled_cmd(self, source, target, argv):
         """Called for unhandled !commands.
